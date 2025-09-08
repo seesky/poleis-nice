@@ -53,6 +53,7 @@ written by
 #include "ccc.h"
 #include "cache.h"
 #include "queue.h"
+#include <string>
 
 enum UDTSockType {UDT_STREAM = 1, UDT_DGRAM};
 
@@ -298,6 +299,10 @@ private: // Options
    int m_iRcvTimeOut;                           // receiving timeout in milliseconds
    bool m_bReuseAddr;				// reuse an exiting port or not, for UDP multiplexer
    int64_t m_llMaxBW;				// maximum data transfer rate (threshold)
+   std::string m_strNiceStunServer;             // libnice STUN server
+   std::string m_strNiceTurnServer;             // libnice TURN server
+   std::string m_strNiceTurnUsername;           // TURN authentication username
+   std::string m_strNiceTurnPassword;           // TURN authentication password
 
 private: // congestion control
    CCCVirtualFactory* m_pCCFactory;             // Factory class to create a specific CC instance

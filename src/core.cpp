@@ -116,6 +116,10 @@ CUDT::CUDT()
    m_iRcvTimeOut = -1;
    m_bReuseAddr = true;
    m_llMaxBW = -1;
+   m_strNiceStunServer = "";
+   m_strNiceTurnServer = "";
+   m_strNiceTurnUsername = "";
+   m_strNiceTurnPassword = "";
 
    m_pCCFactory = new CCCFactory<CUDTCC>;
    m_pCC = NULL;
@@ -169,6 +173,10 @@ CUDT::CUDT(const CUDT& ancestor)
    m_iRcvTimeOut = ancestor.m_iRcvTimeOut;
    m_bReuseAddr = true;	// this must be true, because all accepted sockets shared the same port with the listener
    m_llMaxBW = ancestor.m_llMaxBW;
+   m_strNiceStunServer = ancestor.m_strNiceStunServer;
+   m_strNiceTurnServer = ancestor.m_strNiceTurnServer;
+   m_strNiceTurnUsername = ancestor.m_strNiceTurnUsername;
+   m_strNiceTurnPassword = ancestor.m_strNiceTurnPassword;
 
    m_pCCFactory = ancestor.m_pCCFactory->clone();
    m_pCC = NULL;
@@ -206,7 +214,7 @@ CUDT::~CUDT()
    delete m_pRNode;
 }
 
-void CUDT::setOpt(UDTOpt optName, const void* optval, int)
+void CUDT::setOpt(UDTOpt optName, const void* optval, int optlen)
 {
    if (m_bBroken || m_bClosing)
       throw CUDTException(2, 1, 0);
@@ -345,6 +353,18 @@ void CUDT::setOpt(UDTOpt optName, const void* optval, int)
    case UDT_MAXBW:
       m_llMaxBW = *(int64_t*)optval;
       break;
+   case UDT_OPT_NICE_STUN_SERVER:
+      m_strNiceStunServer.assign((const char*)optval, optlen);
+      break;
+   case UDT_OPT_NICE_TURN_SERVER:
+      m_strNiceTurnServer.assign((const char*)optval, optlen);
+      break;
+   case UDT_OPT_NICE_TURN_USERNAME:
+      m_strNiceTurnUsername.assign((const char*)optval, optlen);
+      break;
+   case UDT_OPT_NICE_TURN_PASSWORD:
+      m_strNiceTurnPassword.assign((const char*)optval, optlen);
+      break;
     
    default:
       throw CUDTException(5, 0, 0);
@@ -436,6 +456,30 @@ void CUDT::getOpt(UDTOpt optName, void* optval, int& optlen)
    case UDT_MAXBW:
       *(int64_t*)optval = m_llMaxBW;
       optlen = sizeof(int64_t);
+      break;
+   case UDT_OPT_NICE_STUN_SERVER:
+      if (optlen < (int)m_strNiceStunServer.size() + 1)
+         throw CUDTException(5, 3, 0);
+      std::strcpy((char*)optval, m_strNiceStunServer.c_str());
+      optlen = m_strNiceStunServer.size() + 1;
+      break;
+   case UDT_OPT_NICE_TURN_SERVER:
+      if (optlen < (int)m_strNiceTurnServer.size() + 1)
+         throw CUDTException(5, 3, 0);
+      std::strcpy((char*)optval, m_strNiceTurnServer.c_str());
+      optlen = m_strNiceTurnServer.size() + 1;
+      break;
+   case UDT_OPT_NICE_TURN_USERNAME:
+      if (optlen < (int)m_strNiceTurnUsername.size() + 1)
+         throw CUDTException(5, 3, 0);
+      std::strcpy((char*)optval, m_strNiceTurnUsername.c_str());
+      optlen = m_strNiceTurnUsername.size() + 1;
+      break;
+   case UDT_OPT_NICE_TURN_PASSWORD:
+      if (optlen < (int)m_strNiceTurnPassword.size() + 1)
+         throw CUDTException(5, 3, 0);
+      std::strcpy((char*)optval, m_strNiceTurnPassword.c_str());
+      optlen = m_strNiceTurnPassword.size() + 1;
       break;
 
    case UDT_STATE:

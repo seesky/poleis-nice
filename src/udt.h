@@ -151,7 +151,11 @@ enum UDTOpt
    UDT_STATE,		// current socket state, see UDTSTATUS, read only
    UDT_EVENT,		// current avalable events associated with the socket
    UDT_SNDDATA,		// size of data in the sending buffer
-   UDT_RCVDATA		// size of data available for recv
+   UDT_RCVDATA,		// size of data available for recv
+   UDT_OPT_NICE_STUN_SERVER,   // libnice STUN server address
+   UDT_OPT_NICE_TURN_SERVER,   // libnice TURN server address
+   UDT_OPT_NICE_TURN_USERNAME, // TURN username for authentication
+   UDT_OPT_NICE_TURN_PASSWORD  // TURN password for authentication
 };
 
 ////////////////////////////////////////////////////////////////////////////////

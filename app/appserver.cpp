@@ -55,6 +55,14 @@ int main(int argc, char* argv[])
    UDTSOCKET serv = UDT::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
    // UDT Options
+   const char* stun_server = "stun.example.org";
+   UDT::setsockopt(serv, 0, UDT_OPT_NICE_STUN_SERVER, stun_server, strlen(stun_server));
+   const char* turn_server = "turn.example.org";
+   UDT::setsockopt(serv, 0, UDT_OPT_NICE_TURN_SERVER, turn_server, strlen(turn_server));
+   const char* turn_user = "user";
+   UDT::setsockopt(serv, 0, UDT_OPT_NICE_TURN_USERNAME, turn_user, strlen(turn_user));
+   const char* turn_pass = "pass";
+   UDT::setsockopt(serv, 0, UDT_OPT_NICE_TURN_PASSWORD, turn_pass, strlen(turn_pass));
    //UDT::setsockopt(serv, 0, UDT_CC, new CCCFactory<CUDPBlast>, sizeof(CCCFactory<CUDPBlast>));
    //UDT::setsockopt(serv, 0, UDT_MSS, new int(9000), sizeof(int));
    //UDT::setsockopt(serv, 0, UDT_RCVBUF, new int(10000000), sizeof(int));

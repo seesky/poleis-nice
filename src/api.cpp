@@ -50,6 +50,7 @@ written by
 #include <cstring>
 #include "api.h"
 #include "core.h"
+#include "channel_nice.h"
 
 using namespace std;
 
@@ -1405,7 +1406,11 @@ void CUDTUnited::updateMux(CUDTSocket* s, const sockaddr* addr, const UDPSOCKET*
    m.m_bReusable = s->m_pUDT->m_bReuseAddr;
    m.m_iID = s->m_SocketID;
 
-   m.m_pChannel = new CChannel(s->m_pUDT->m_iIPversion);
+   m.m_pChannel = new CChannelNice(s->m_pUDT->m_iIPversion,
+                               s->m_pUDT->m_strNiceStunServer,
+                               s->m_pUDT->m_strNiceTurnServer,
+                               s->m_pUDT->m_strNiceTurnUsername,
+                               s->m_pUDT->m_strNiceTurnPassword);
    m.m_pChannel->setSndBufSize(s->m_pUDT->m_iUDPSndBufSize);
    m.m_pChannel->setRcvBufSize(s->m_pUDT->m_iUDPRcvBufSize);
 
