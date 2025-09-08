@@ -2180,6 +2180,7 @@ int CUDT::getICEInfo(UDTSOCKET u, std::string& ufrag, std::string& pwd,
    try
    {
        CUDT* udt = s_UDTUnited.lookup(u);
+       udt->m_pSndQueue->m_pChannel->waitForCandidates();
        int r1 = udt->m_pSndQueue->m_pChannel->getLocalCredentials(ufrag, pwd);
        int r2 = udt->m_pSndQueue->m_pChannel->getLocalCandidates(candidates);
        return (r1 < 0 || r2 < 0) ? ERROR : 0;
