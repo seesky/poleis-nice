@@ -45,6 +45,10 @@ written by
 #include "udt.h"
 #include "packet.h"
 
+#ifdef USE_LIBNICE
+#include "nice_channel.h"
+typedef CNiceChannel CChannel;
+#else
 
 class CChannel
 {
@@ -167,5 +171,6 @@ private:
    int m_iRcvBufSize;                   // UDP receiving buffer size
 };
 
+#endif // !USE_LIBNICE
 
 #endif
