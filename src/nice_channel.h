@@ -59,7 +59,7 @@ public:
 
    void open(const sockaddr* addr = NULL);
    void open(UDPSOCKET udpsock);
-   void close() const;
+   void close();
 
    int getSndBufSize();
    int getRcvBufSize();
