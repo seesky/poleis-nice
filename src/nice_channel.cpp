@@ -103,7 +103,12 @@ void CNiceChannel::open(UDPSOCKET udpsock)
 void CNiceChannel::close()
 {
    if (m_pAgent)
+   {
+      // Detach any receive callback and close the agent so that libnice
+      // stops all internal processing before we tear down its context.
       nice_agent_attach_recv(m_pAgent, m_iStreamID, m_iComponentID, NULL, NULL, NULL);
+      nice_agent_close(m_pAgent);
+   }
 
    if (m_pLoop)
       g_main_loop_quit(m_pLoop);
