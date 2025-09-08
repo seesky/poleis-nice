@@ -51,7 +51,21 @@ class CChannel
 public:
    CChannel();
    CChannel(int version);
-   ~CChannel();
+   virtual ~CChannel();
+
+      // Functionality:
+      //    Block until the underlying transport is ready for
+      //    communication.  This is primarily used by derived
+      //    implementations such as CChannelNice which must wait for
+      //    ICE negotiation to complete.  The default implementation
+      //    returns immediately with success.
+      // Parameters:
+      //    0) [in] timeout: amount of time in milliseconds to wait;
+      //                     a negative value means to wait
+      //                     indefinitely.
+      // Returned value:
+      //    0 on success, or a negative error code on failure.
+   virtual int waitForReady(int timeout = -1);
 
       // Functionality:
       //    Open a UDP channel.
