@@ -50,6 +50,10 @@ written by
 #include <queue>
 #include <vector>
 
+#ifdef USE_LIBNICE
+#include <glib.h>
+#endif
+
 class CUDT;
 
 struct CUnit
@@ -502,8 +506,12 @@ private:
    std::map<int32_t, std::queue<CPacket*> > m_mBuffer;	// temporary buffer for rendezvous connection request
    pthread_mutex_t m_PassLock;
    pthread_cond_t m_PassCond;
+#ifdef USE_LIBNICE
+   GMainContext* m_pGlibCtx;
+   GMainLoop*    m_pGlibLoop;
+#endif
 
-private:
+ private:
    CRcvQueue(const CRcvQueue&);
    CRcvQueue& operator=(const CRcvQueue&);
 };

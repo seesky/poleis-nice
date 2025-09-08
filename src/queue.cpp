@@ -53,6 +53,10 @@ written by
 
 using namespace std;
 
+#ifdef USE_LIBNICE
+#include <glib.h>
+#endif
+
 CUnitQueue::CUnitQueue():
 m_pQEntry(NULL),
 m_pCurrQueue(NULL),
@@ -883,6 +887,10 @@ m_IDLock(),
 m_mBuffer(),
 m_PassLock(),
 m_PassCond()
+#ifdef USE_LIBNICE
+,m_pGlibCtx(NULL)
+,m_pGlibLoop(NULL)
+#endif
 {
    #ifndef WIN32
       pthread_mutex_init(&m_PassLock, NULL);
@@ -935,6 +943,13 @@ CRcvQueue::~CRcvQueue()
          i->second.pop();
       }
    }
+
+#ifdef USE_LIBNICE
+   if (m_pGlibLoop)
+      g_main_loop_unref(m_pGlibLoop);
+   if (m_pGlibCtx)
+      g_main_context_unref(m_pGlibCtx);
+#endif
 }
 
 void CRcvQueue::init(int qsize, int payload, int version, int hsize, CChannel* cc, CTimer* t)
@@ -951,6 +966,20 @@ void CRcvQueue::init(int qsize, int payload, int version, int hsize, CChannel* c
 
    m_pRcvUList = new CRcvUList;
    m_pRendezvousQueue = new CRendezvousQueue;
+
+#ifdef USE_LIBNICE
+   m_pGlibCtx = g_main_context_new();
+   m_pGlibLoop = g_main_loop_new(m_pGlibCtx, FALSE);
+   if (m_pChannel)
+   {
+      GSource* src = m_pChannel->getGSource();
+      if (src)
+      {
+         g_source_attach(src, m_pGlibCtx);
+         g_source_unref(src);
+      }
+   }
+#endif
 
    #ifndef WIN32
       if (0 != pthread_create(&m_WorkerThread, NULL, CRcvQueue::worker, this))
@@ -980,6 +1009,10 @@ void CRcvQueue::init(int qsize, int payload, int version, int hsize, CChannel* c
 
    while (!self->m_bClosing)
    {
+#ifdef USE_LIBNICE
+      if (self->m_pGlibCtx)
+         g_main_context_iteration(self->m_pGlibCtx, FALSE);
+#endif
       #ifdef NO_BUSY_WAITING
          self->m_pTimer->tick();
       #endif
