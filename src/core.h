@@ -107,6 +107,12 @@ public: //API
    static CUDTException& getlasterror();
    static int perfmon(UDTSOCKET u, CPerfMon* perf, bool clear = true);
    static UDTSTATUS getsockstate(UDTSOCKET u);
+#ifdef USE_LIBNICE
+   static int getICEInfo(UDTSOCKET u, std::string& ufrag, std::string& pwd,
+                         std::vector<std::string>& candidates);
+   static int setICEInfo(UDTSOCKET u, const std::string& ufrag, const std::string& pwd,
+                         const std::vector<std::string>& candidates);
+#endif
 
 public: // internal API
    static CUDT* getUDTHandle(UDTSOCKET u);
