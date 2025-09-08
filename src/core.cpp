@@ -2472,13 +2472,10 @@ int CUDT::listen(sockaddr* addr, CPacket& packet)
    CHandShake hs;
    hs.deserialize(packet.m_pcData, packet.getLength());
 
-   // SYN cookie
-   char clienthost[NI_MAXHOST];
-   char clientport[NI_MAXSERV];
-   getnameinfo(addr, (AF_INET == m_iVersion) ? sizeof(sockaddr_in) : sizeof(sockaddr_in6), clienthost, sizeof(clienthost), clientport, sizeof(clientport), NI_NUMERICHOST|NI_NUMERICSERV);
+   // SYN cookie without relying on real IP/port
    int64_t timestamp = (CTimer::getTime() - m_StartTime) / 60000000; // secret changes every one minute
    stringstream cookiestr;
-   cookiestr << clienthost << ":" << clientport << ":" << timestamp;
+   cookiestr << hs.m_iID << ":" << timestamp;
    unsigned char cookie[16];
    CMD5::compute(cookiestr.str().c_str(), cookie);
 
@@ -2500,8 +2497,9 @@ int CUDT::listen(sockaddr* addr, CPacket& packet)
       if (hs.m_iCookie != *(int*)cookie)
       {
          timestamp --;
-         cookiestr << clienthost << ":" << clientport << ":" << timestamp;
-         CMD5::compute(cookiestr.str().c_str(), cookie);
+         stringstream cookiestr2;
+         cookiestr2 << hs.m_iID << ":" << timestamp;
+         CMD5::compute(cookiestr2.str().c_str(), cookie);
 
          if (hs.m_iCookie != *(int*)cookie)
             return -1;
