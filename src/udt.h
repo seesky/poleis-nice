@@ -350,6 +350,12 @@ UDT_API ERRORINFO& getlasterror();
 UDT_API int getlasterror_code();
 UDT_API const char* getlasterror_desc();
 UDT_API int perfmon(UDTSOCKET u, TRACEINFO* perf, bool clear = true);
+#ifdef USE_LIBNICE
+UDT_API int getICEInfo(UDTSOCKET u, std::string& ufrag, std::string& pwd,
+                       std::vector<std::string>& candidates);
+UDT_API int setICEInfo(UDTSOCKET u, const std::string& ufrag, const std::string& pwd,
+                       const std::vector<std::string>& candidates);
+#endif
 UDT_API UDTSTATUS getsockstate(UDTSOCKET u);
 
 }  // namespace UDT

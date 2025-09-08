@@ -229,6 +229,61 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
    return packet.getLength();
 }
 
+int CNiceChannel::getLocalCredentials(std::string& ufrag, std::string& pwd) const
+{
+   gchar* lu = NULL;
+   gchar* lp = NULL;
+   if (!nice_agent_get_local_credentials(m_pAgent, m_iStreamID, &lu, &lp))
+      return -1;
+   if (lu)
+   {
+      ufrag = lu;
+      g_free(lu);
+   }
+   if (lp)
+   {
+      pwd = lp;
+      g_free(lp);
+   }
+   return 0;
+}
+
+int CNiceChannel::getLocalCandidates(std::vector<std::string>& candidates) const
+{
+   GSList* list = nice_agent_get_local_candidates(m_pAgent, m_iStreamID, m_iComponentID);
+   for (GSList* item = list; item; item = item->next)
+   {
+      NiceCandidate* c = (NiceCandidate*)item->data;
+      gchar* cand = nice_agent_generate_local_candidate_sdp(m_pAgent, c);
+      if (cand)
+      {
+         candidates.push_back(cand);
+         g_free(cand);
+      }
+   }
+   g_slist_free_full(list, (GDestroyNotify)nice_candidate_free);
+   return candidates.size();
+}
+
+int CNiceChannel::setRemoteCredentials(const std::string& ufrag, const std::string& pwd)
+{
+   return nice_agent_set_remote_credentials(m_pAgent, m_iStreamID, ufrag.c_str(), pwd.c_str());
+}
+
+int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates)
+{
+   GSList* list = NULL;
+   for (std::vector<std::string>::const_iterator it = candidates.begin(); it != candidates.end(); ++ it)
+   {
+      NiceCandidate* c = NULL;
+      if (nice_agent_parse_remote_candidate_sdp(m_pAgent, m_iStreamID, m_iComponentID, it->c_str(), &c))
+         list = g_slist_append(list, c);
+   }
+   int r = nice_agent_set_remote_candidates(m_pAgent, m_iStreamID, m_iComponentID, list);
+   g_slist_free_full(list, (GDestroyNotify)nice_candidate_free);
+   return r;
+}
+
 void CNiceChannel::cb_recv(NiceAgent* agent, guint stream_id, guint component_id,
                            guint len, gchar* buf, gpointer data)
 {

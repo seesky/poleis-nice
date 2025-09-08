@@ -44,6 +44,12 @@ environment variables before invoking make, for example:
 
 Adjust the paths to match your installation locations.
 
+When using the libnice-based transport, applications must exchange ICE
+parameters out-of-band before a connection can be established. Call
+`UDT::getICEInfo()` to obtain the local username fragment, password, and
+candidate list and signal these to the remote peer. Before initiating
+connectivity checks, supply the remote values with `UDT::setICEInfo()`.
+
 To use UDT in your application:
 Read index.htm in ./doc. The documentation is in HTML format and requires your
 browser to support JavaScript.

@@ -49,6 +49,8 @@ written by
 #include <nice/agent.h>
 #include <glib.h>
 #include <queue>
+#include <string>
+#include <vector>
 
 class CNiceChannel
 {
@@ -70,6 +72,18 @@ public:
 
    int sendto(const sockaddr* addr, CPacket& packet) const;
    int recvfrom(sockaddr* addr, CPacket& packet) const;
+
+   // Retrieve local ICE username fragment and password. Returns 0 on success.
+   int getLocalCredentials(std::string& ufrag, std::string& pwd) const;
+
+   // Obtain a list of local candidates in SDP attribute format.
+   int getLocalCandidates(std::vector<std::string>& candidates) const;
+
+   // Supply remote ICE username fragment and password.
+   int setRemoteCredentials(const std::string& ufrag, const std::string& pwd);
+
+   // Provide remote candidates (each in SDP attribute format) prior to checks.
+   int setRemoteCandidates(const std::vector<std::string>& candidates);
 
 private:
    static void cb_recv(NiceAgent* agent, guint stream_id, guint component_id,

@@ -48,6 +48,8 @@ written by
    #include <unistd.h>
 #endif
 #include <cstring>
+#include <vector>
+#include <string>
 #include "api.h"
 #include "core.h"
 
@@ -2152,6 +2154,52 @@ UDTSTATUS CUDT::getsockstate(UDTSOCKET u)
    }
 }
 
+#ifdef USE_LIBNICE
+int CUDT::getICEInfo(UDTSOCKET u, std::string& ufrag, std::string& pwd,
+                     std::vector<std::string>& candidates)
+{
+   try
+   {
+       CUDT* udt = s_UDTUnited.lookup(u);
+       int r1 = udt->m_pSndQueue->m_pChannel->getLocalCredentials(ufrag, pwd);
+       int r2 = udt->m_pSndQueue->m_pChannel->getLocalCandidates(candidates);
+       return (r1 < 0 || r2 < 0) ? ERROR : 0;
+   }
+   catch (CUDTException e)
+   {
+       s_UDTUnited.setError(new CUDTException(e));
+       return ERROR;
+   }
+   catch (...)
+   {
+       s_UDTUnited.setError(new CUDTException(-1, 0, 0));
+       return ERROR;
+   }
+}
+
+int CUDT::setICEInfo(UDTSOCKET u, const std::string& ufrag, const std::string& pwd,
+                     const std::vector<std::string>& candidates)
+{
+   try
+   {
+       CUDT* udt = s_UDTUnited.lookup(u);
+       int r1 = udt->m_pSndQueue->m_pChannel->setRemoteCredentials(ufrag, pwd);
+       int r2 = udt->m_pSndQueue->m_pChannel->setRemoteCandidates(candidates);
+       return (r1 < 0 || r2 < 0) ? ERROR : 0;
+   }
+   catch (CUDTException e)
+   {
+       s_UDTUnited.setError(new CUDTException(e));
+       return ERROR;
+   }
+   catch (...)
+   {
+       s_UDTUnited.setError(new CUDTException(-1, 0, 0));
+       return ERROR;
+   }
+}
+#endif
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -2383,6 +2431,20 @@ int perfmon(UDTSOCKET u, TRACEINFO* perf, bool clear)
 {
    return CUDT::perfmon(u, perf, clear);
 }
+
+#ifdef USE_LIBNICE
+int getICEInfo(UDTSOCKET u, std::string& ufrag, std::string& pwd,
+               std::vector<std::string>& candidates)
+{
+   return CUDT::getICEInfo(u, ufrag, pwd, candidates);
+}
+
+int setICEInfo(UDTSOCKET u, const std::string& ufrag, const std::string& pwd,
+               const std::vector<std::string>& candidates)
+{
+   return CUDT::setICEInfo(u, ufrag, pwd, candidates);
+}
+#endif
 
 UDTSTATUS getsockstate(UDTSOCKET u)
 {
