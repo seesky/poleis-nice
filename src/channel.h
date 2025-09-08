@@ -46,7 +46,29 @@ written by
 #include "packet.h"
 
 
-class CChannel
+class IChannel
+{
+public:
+   virtual ~IChannel() {}
+
+   virtual void open(const sockaddr* addr = NULL) = 0;
+   virtual void open(UDPSOCKET udpsock) = 0;
+   virtual void close() const = 0;
+
+   virtual int getSndBufSize() = 0;
+   virtual int getRcvBufSize() = 0;
+   virtual void setSndBufSize(int size) = 0;
+   virtual void setRcvBufSize(int size) = 0;
+
+   virtual void getSockAddr(sockaddr* addr) const = 0;
+   virtual void getPeerAddr(sockaddr* addr) const = 0;
+
+   virtual int sendto(const sockaddr* addr, CPacket& packet) const = 0;
+   virtual int recvfrom(sockaddr* addr, CPacket& packet) const = 0;
+};
+
+
+class CChannel : public IChannel
 {
 public:
    CChannel();

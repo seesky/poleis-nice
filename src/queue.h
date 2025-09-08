@@ -384,7 +384,7 @@ public:
       // Returned value:
       //    None.
 
-   void init(CChannel* c, CTimer* t);
+   void init(IChannel* c, CTimer* t);
 
       // Functionality:
       //    Send out a packet to a given address.
@@ -407,7 +407,7 @@ private:
 
 private:
    CSndUList* m_pSndUList;		// List of UDT instances for data sending
-   CChannel* m_pChannel;                // The UDP channel for data sending
+   IChannel* m_pChannel;                // The UDP channel for data sending
    CTimer* m_pTimer;			// Timing facility
 
    pthread_mutex_t m_WindowLock;
@@ -444,7 +444,7 @@ public:
       // Returned value:
       //    None.
 
-   void init(int size, int payload, int version, int hsize, CChannel* c, CTimer* t);
+   void init(int size, int payload, int version, int hsize, IChannel* c, CTimer* t);
 
       // Functionality:
       //    Read a packet for a specific UDT socket id.
@@ -470,7 +470,7 @@ private:
 
    CRcvUList* m_pRcvUList;		// List of UDT instances that will read packets from the queue
    CHash* m_pHash;			// Hash table for UDT socket looking up
-   CChannel* m_pChannel;		// UDP channel for receving packets
+   IChannel* m_pChannel;		// UDP channel for receving packets
    CTimer* m_pTimer;			// shared timer with the snd queue
 
    int m_iPayloadSize;                  // packet payload size
@@ -512,7 +512,7 @@ struct CMultiplexer
 {
    CSndQueue* m_pSndQueue;	// The sending queue
    CRcvQueue* m_pRcvQueue;	// The receiving queue
-   CChannel* m_pChannel;	// The UDP channel for sending and receiving
+   IChannel* m_pChannel;	// The UDP channel for sending and receiving
    CTimer* m_pTimer;		// The timer
 
    int m_iPort;			// The UDP port number of this multiplexer
