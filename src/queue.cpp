@@ -487,7 +487,7 @@ CSndQueue::~CSndQueue()
    delete m_pSndUList;
 }
 
-void CSndQueue::init(CChannel* c, CTimer* t)
+void CSndQueue::init(IChannel* c, CTimer* t)
 {
    m_pChannel = c;
    m_pTimer = t;
@@ -937,7 +937,7 @@ CRcvQueue::~CRcvQueue()
    }
 }
 
-void CRcvQueue::init(int qsize, int payload, int version, int hsize, CChannel* cc, CTimer* t)
+void CRcvQueue::init(int qsize, int payload, int version, int hsize, IChannel* cc, CTimer* t)
 {
    m_iPayloadSize = payload;
 
