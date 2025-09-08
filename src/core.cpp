@@ -623,6 +623,13 @@ void CUDT::connect(const sockaddr* serv_addr)
    int hs_size = m_iPayloadSize;
    m_ConnReq.serialize(reqdata, hs_size);
    request.setLength(hs_size);
+   #ifdef USE_LIBNICE
+      if (!m_pSndQueue->m_pChannel->waitUntilConnected())
+      {
+         delete [] reqdata;
+         throw CUDTException(1, 1, 0);
+      }
+   #endif
    m_pSndQueue->sendto(serv_addr, request);
    m_llLastReqTime = CTimer::getTime();
 
@@ -908,6 +915,13 @@ void CUDT::connect(const sockaddr* peer, CHandShake* hs)
    hs->serialize(buffer, size);
    response.pack(0, NULL, buffer, size);
    response.m_iID = m_PeerID;
+   #ifdef USE_LIBNICE
+      if (!m_pSndQueue->m_pChannel->waitUntilConnected())
+      {
+         delete [] buffer;
+         throw CUDTException(1, 1, 0);
+      }
+   #endif
    m_pSndQueue->sendto(peer, response);
    delete [] buffer;
 }
@@ -2474,6 +2488,10 @@ int CUDT::listen(sockaddr* addr, CPacket& packet)
       packet.m_iID = hs.m_iID;
       int size = packet.getLength();
       hs.serialize(packet.m_pcData, size);
+      #ifdef USE_LIBNICE
+         if (!m_pSndQueue->m_pChannel->waitUntilConnected())
+            return -1;
+      #endif
       m_pSndQueue->sendto(addr, packet);
       return 0;
    }
@@ -2498,11 +2516,15 @@ int CUDT::listen(sockaddr* addr, CPacket& packet)
       if ((hs.m_iVersion != m_iVersion) || (hs.m_iType != m_iSockType))
       {
          // mismatch, reject the request
-         hs.m_iReqType = 1002;
-         int size = CHandShake::m_iContentSize;
-         hs.serialize(packet.m_pcData, size);
-         packet.m_iID = id;
-         m_pSndQueue->sendto(addr, packet);
+        hs.m_iReqType = 1002;
+        int size = CHandShake::m_iContentSize;
+        hs.serialize(packet.m_pcData, size);
+        packet.m_iID = id;
+        #ifdef USE_LIBNICE
+           if (!m_pSndQueue->m_pChannel->waitUntilConnected())
+              return -1;
+        #endif
+        m_pSndQueue->sendto(addr, packet);
       }
       else
       {
@@ -2512,13 +2534,17 @@ int CUDT::listen(sockaddr* addr, CPacket& packet)
 
          // send back a response if connection failed or connection already existed
          // new connection response should be sent in connect()
-         if (result != 1)
-         {
-            int size = CHandShake::m_iContentSize;
-            hs.serialize(packet.m_pcData, size);
-            packet.m_iID = id;
-            m_pSndQueue->sendto(addr, packet);
-         }
+        if (result != 1)
+        {
+           int size = CHandShake::m_iContentSize;
+           hs.serialize(packet.m_pcData, size);
+           packet.m_iID = id;
+           #ifdef USE_LIBNICE
+              if (!m_pSndQueue->m_pChannel->waitUntilConnected())
+                 return -1;
+           #endif
+           m_pSndQueue->sendto(addr, packet);
+        }
          else
          {
             // a new connection has been created, enable epoll for write 
