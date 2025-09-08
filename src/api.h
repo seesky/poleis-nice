@@ -49,6 +49,9 @@ written by
 #include "queue.h"
 #include "cache.h"
 #include "epoll.h"
+#ifdef USE_LIBNICE
+#include <glib.h>
+#endif
 
 class CUDT;
 
@@ -263,6 +266,19 @@ private:
 private:
    CUDTUnited(const CUDTUnited&);
    CUDTUnited& operator=(const CUDTUnited&);
+
+#ifdef USE_LIBNICE
+public:
+   // Accessor for global GLib context used by libnice
+   GMainContext* getNiceContext() { return m_pNiceCtx; }
+
+private:
+   GMainContext* m_pNiceCtx;      // global GLib context for libnice
+   GMainLoop*    m_pNiceLoop;     // main loop running in background thread
+   GThread*      m_pNiceThread;   // thread handle for main loop
+
+   static gpointer libniceLoop(gpointer data);
+#endif
 };
 
 #endif

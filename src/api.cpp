@@ -131,6 +131,11 @@ m_iInstanceCount(0),
 m_bGCStatus(false),
 m_GCThread(),
 m_ClosedSockets()
+#ifdef USE_LIBNICE
+,m_pNiceCtx(NULL)
+,m_pNiceLoop(NULL)
+,m_pNiceThread(NULL)
+#endif
 {
    // Socket ID MUST start from a random value
    srand((unsigned int)CTimer::getTime());
@@ -176,7 +181,32 @@ CUDTUnited::~CUDTUnited()
    #endif
 
    delete m_pCache;
+
+#ifdef USE_LIBNICE
+   // Clean up libnice resources if startup/cleanup were not balanced
+   if (m_pNiceLoop)
+   {
+      g_main_loop_quit(m_pNiceLoop);
+      if (m_pNiceThread)
+         g_thread_join(m_pNiceThread);
+      g_main_loop_unref(m_pNiceLoop);
+      m_pNiceLoop = NULL;
+   }
+   if (m_pNiceCtx)
+   {
+      g_main_context_unref(m_pNiceCtx);
+      m_pNiceCtx = NULL;
+   }
+#endif
 }
+
+#ifdef USE_LIBNICE
+gpointer CUDTUnited::libniceLoop(gpointer data)
+{
+   g_main_loop_run((GMainLoop*)data);
+   return NULL;
+}
+#endif
 
 int CUDTUnited::startup()
 {
@@ -214,6 +244,13 @@ int CUDTUnited::startup()
 
    m_bGCStatus = true;
 
+#ifdef USE_LIBNICE
+   // Start global GLib main loop for libnice operations
+   m_pNiceCtx = g_main_context_new();
+   m_pNiceLoop = g_main_loop_new(m_pNiceCtx, FALSE);
+   m_pNiceThread = g_thread_new("libnice-loop", libniceLoop, m_pNiceLoop);
+#endif
+
    return 0;
 }
 
@@ -249,6 +286,22 @@ int CUDTUnited::cleanup()
    #ifdef WIN32
       WSACleanup();
    #endif
+
+#ifdef USE_LIBNICE
+   if (m_pNiceLoop)
+   {
+      g_main_loop_quit(m_pNiceLoop);
+      if (m_pNiceThread)
+         g_thread_join(m_pNiceThread);
+      g_main_loop_unref(m_pNiceLoop);
+      m_pNiceLoop = NULL;
+   }
+   if (m_pNiceCtx)
+   {
+      g_main_context_unref(m_pNiceCtx);
+      m_pNiceCtx = NULL;
+   }
+#endif
 
    return 0;
 }

@@ -59,6 +59,7 @@ written by
 #ifdef USE_LIBNICE
 #include <nice/agent.h>
 #include <glib.h>
+#include "api.h"
 #endif
 
 #ifdef WIN32
@@ -107,12 +108,11 @@ CChannel::~CChannel()
 void CChannel::open(const sockaddr* addr)
 {
 #ifdef USE_LIBNICE
-   GMainContext* ctx = g_main_context_new();
+   GMainContext* ctx = CUDT::s_UDTUnited.getNiceContext();
    m_pAgent = nice_agent_new(ctx, NICE_COMPATIBILITY_RFC5245);
    m_uStreamID = nice_agent_add_stream(m_pAgent, 1);
    m_uComponentID = 1;
    nice_agent_gather_candidates(m_pAgent, m_uStreamID);
-   g_main_context_unref(ctx);
 #else
    // construct an socket
    m_iSocket = ::socket(m_iIPversion, SOCK_DGRAM, 0);
@@ -218,7 +218,10 @@ void CChannel::close() const
 {
 #ifdef USE_LIBNICE
    if (m_pAgent)
+   {
       g_object_unref(m_pAgent);
+      const_cast<CChannel*>(this)->m_pAgent = NULL;
+   }
 #else
    #ifndef WIN32
       ::close(m_iSocket);
