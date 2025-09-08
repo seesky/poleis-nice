@@ -38,6 +38,8 @@ written by
    Yunhong Gu, last updated 01/27/2011
 *****************************************************************************/
 
+#ifndef USE_LIBNICE
+
 #ifndef WIN32
    #include <netdb.h>
    #include <arpa/inet.h>
@@ -338,3 +340,5 @@ int CChannel::recvfrom(sockaddr* addr, CPacket& packet) const
 
    return packet.getLength();
 }
+
+#endif // !USE_LIBNICE
