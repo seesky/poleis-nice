@@ -73,6 +73,10 @@ public:
    int sendto(const sockaddr* addr, CPacket& packet) const;
    int recvfrom(sockaddr* addr, CPacket& packet) const;
 
+   // Block until the underlying libnice component reports READY or CONNECTED.
+   // Returns true on success, or false if FAILED or the timeout (ms) expires.
+   bool waitUntilConnected(int timeout_ms = 30000);
+
    // Retrieve local ICE username fragment and password. Returns 0 on success.
    int getLocalCredentials(std::string& ufrag, std::string& pwd) const;
 
@@ -89,6 +93,9 @@ private:
    static void cb_recv(NiceAgent* agent, guint stream_id, guint component_id,
                        guint len, gchar* buf, gpointer data);
    static gpointer cb_loop(gpointer data);
+   static void cb_state_changed(NiceAgent* agent, guint stream_id,
+                               guint component_id, guint state,
+                               gpointer data);
 
 private:
    NiceAgent*     m_pAgent;
@@ -101,6 +108,11 @@ private:
 
    int            m_iSndBufSize;
    int            m_iRcvBufSize;
+
+   GMutex         m_StateLock;
+   GCond          m_StateCond;
+   bool           m_bConnected;
+   bool           m_bFailed;
 };
 
 #endif // USE_LIBNICE
