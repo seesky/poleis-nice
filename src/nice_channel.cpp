@@ -2,6 +2,7 @@
 
 #include "nice_channel.h"
 #include <nice/agent.h>
+#include <nice/address.h>
 #include <cstring>
 #ifndef WIN32
 #include <arpa/inet.h>
@@ -26,6 +27,8 @@ m_bControlling(controlling)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
+   memset(&m_SockAddr, 0, sizeof(m_SockAddr));
+   memset(&m_PeerAddr, 0, sizeof(m_PeerAddr));
 }
 
 CNiceChannel::CNiceChannel(int version, bool controlling):
@@ -45,6 +48,8 @@ m_bControlling(controlling)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
+   memset(&m_SockAddr, 0, sizeof(m_SockAddr));
+   memset(&m_PeerAddr, 0, sizeof(m_PeerAddr));
 }
 
 CNiceChannel::~CNiceChannel()
@@ -176,13 +181,33 @@ void CNiceChannel::setRcvBufSize(int size)
 void CNiceChannel::getSockAddr(sockaddr* addr) const
 {
    if (addr)
-      memset(addr, 0, sizeof(sockaddr));
+   {
+      if (m_SockAddr.ss_family)
+      {
+         if (AF_INET == m_SockAddr.ss_family)
+            memcpy(addr, &m_SockAddr, sizeof(sockaddr_in));
+         else
+            memcpy(addr, &m_SockAddr, sizeof(sockaddr_in6));
+      }
+      else
+         memset(addr, 0, sizeof(sockaddr));
+   }
 }
 
 void CNiceChannel::getPeerAddr(sockaddr* addr) const
 {
    if (addr)
-      memset(addr, 0, sizeof(sockaddr));
+   {
+      if (m_PeerAddr.ss_family)
+      {
+         if (AF_INET == m_PeerAddr.ss_family)
+            memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in));
+         else
+            memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in6));
+      }
+      else
+         memset(addr, 0, sizeof(sockaddr));
+   }
 }
 
 int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
@@ -226,6 +251,39 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
 {
    if (addr)
       memset(addr, 0, sizeof(sockaddr));
+
+   if (addr && !m_PeerAddr.ss_family)
+   {
+      NiceCandidate* lc = NULL;
+      NiceCandidate* rc = NULL;
+      if (nice_agent_get_selected_pair(m_pAgent, m_iStreamID, m_iComponentID, &lc, &rc))
+      {
+         if (lc)
+         {
+            nice_address_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
+            nice_candidate_free(lc);
+         }
+         if (rc)
+         {
+            nice_address_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
+            if (addr)
+            {
+               if (AF_INET == m_PeerAddr.ss_family)
+                  memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in));
+               else
+                  memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in6));
+            }
+            nice_candidate_free(rc);
+         }
+      }
+   }
+   else if (addr && m_PeerAddr.ss_family)
+   {
+      if (AF_INET == m_PeerAddr.ss_family)
+         memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in));
+      else
+         memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in6));
+   }
 
    GByteArray* arr = (GByteArray*)g_async_queue_pop(m_pRecvQueue);
    if (NULL == arr)

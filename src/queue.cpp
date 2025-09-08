@@ -1043,7 +1043,13 @@ void CRcvQueue::init(int qsize, int payload, int version, int hsize, CChannel* c
       {
          if (NULL != (u = self->m_pHash->lookup(id)))
          {
-            if (CIPAddress::ipcmp(addr, u->m_pPeerAddr, u->m_iIPversion))
+            if (
+#ifdef USE_LIBNICE
+                true
+#else
+                CIPAddress::ipcmp(addr, u->m_pPeerAddr, u->m_iIPversion)
+#endif
+               )
             {
                if (u->m_bConnected && !u->m_bBroken && !u->m_bClosing)
                {

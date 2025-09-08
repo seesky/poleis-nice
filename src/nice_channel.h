@@ -123,6 +123,8 @@ private:
    bool           m_bFailed;
    bool           m_bGatheringDone;
    bool           m_bControlling;
+   mutable sockaddr_storage m_SockAddr;
+   mutable sockaddr_storage m_PeerAddr;
 };
 
 #endif // USE_LIBNICE
