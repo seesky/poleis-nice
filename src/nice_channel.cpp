@@ -20,7 +20,8 @@ m_pRecvQueue(NULL),
 m_iSndBufSize(65536),
 m_iRcvBufSize(65536),
 m_bConnected(false),
-m_bFailed(false)
+m_bFailed(false),
+m_bGatheringDone(false)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
@@ -37,7 +38,8 @@ m_pRecvQueue(NULL),
 m_iSndBufSize(65536),
 m_iRcvBufSize(65536),
 m_bConnected(false),
-m_bFailed(false)
+m_bFailed(false),
+m_bGatheringDone(false)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
@@ -56,6 +58,7 @@ void CNiceChannel::open(const sockaddr* addr)
    {
       m_bConnected = false;
       m_bFailed = false;
+      m_bGatheringDone = false;
       m_pContext = g_main_context_new();
       if (NULL == m_pContext)
          throw CUDTException(3, 2, 0);
@@ -83,9 +86,14 @@ void CNiceChannel::open(const sockaddr* addr)
 
       g_signal_connect(G_OBJECT(m_pAgent), "component-state-changed",
                        G_CALLBACK(CNiceChannel::cb_state_changed), this);
+      g_signal_connect(G_OBJECT(m_pAgent), "candidate-gathering-done",
+                       G_CALLBACK(CNiceChannel::cb_candidate_gathering_done), this);
 
       m_pThread = g_thread_new("nice-loop", &CNiceChannel::cb_loop, this);
       if (NULL == m_pThread)
+         throw CUDTException(3, 1, 0);
+
+      if (!nice_agent_gather_candidates(m_pAgent, m_iStreamID))
          throw CUDTException(3, 1, 0);
    }
    catch (CUDTException& e)
@@ -304,6 +312,16 @@ int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates
    return r;
 }
 
+void CNiceChannel::waitForCandidates()
+{
+   g_mutex_lock(&m_StateLock);
+   while (!m_bGatheringDone && !m_bFailed)
+   {
+      g_cond_wait(&m_StateCond, &m_StateLock);
+   }
+   g_mutex_unlock(&m_StateLock);
+}
+
 bool CNiceChannel::waitUntilConnected(int timeout_ms)
 {
    gint64 end_time = 0;
@@ -337,6 +355,16 @@ void CNiceChannel::cb_recv(NiceAgent* agent, guint stream_id, guint component_id
    GByteArray* arr = g_byte_array_sized_new(len);
    g_byte_array_append(arr, (guint8*)buf, len);
    g_async_queue_push(self->m_pRecvQueue, arr);
+}
+
+void CNiceChannel::cb_candidate_gathering_done(NiceAgent* agent, guint stream_id,
+                                               gpointer data)
+{
+   CNiceChannel* self = (CNiceChannel*)data;
+   g_mutex_lock(&self->m_StateLock);
+   self->m_bGatheringDone = true;
+   g_cond_broadcast(&self->m_StateCond);
+   g_mutex_unlock(&self->m_StateLock);
 }
 
 void CNiceChannel::cb_state_changed(NiceAgent* agent, guint stream_id,

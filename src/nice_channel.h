@@ -89,6 +89,9 @@ public:
    // Provide remote candidates (each in SDP attribute format) prior to checks.
    int setRemoteCandidates(const std::vector<std::string>& candidates);
 
+   // Block until candidate gathering has completed.
+   void waitForCandidates();
+
 private:
    static void cb_recv(NiceAgent* agent, guint stream_id, guint component_id,
                        guint len, gchar* buf, gpointer data);
@@ -96,6 +99,8 @@ private:
    static void cb_state_changed(NiceAgent* agent, guint stream_id,
                                guint component_id, guint state,
                                gpointer data);
+   static void cb_candidate_gathering_done(NiceAgent* agent, guint stream_id,
+                                           gpointer data);
 
 private:
    NiceAgent*     m_pAgent;
@@ -113,6 +118,7 @@ private:
    GCond          m_StateCond;
    bool           m_bConnected;
    bool           m_bFailed;
+   bool           m_bGatheringDone;
 };
 
 #endif // USE_LIBNICE
