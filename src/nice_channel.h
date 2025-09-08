@@ -55,8 +55,8 @@ written by
 class CNiceChannel
 {
 public:
-   CNiceChannel();
-   CNiceChannel(int version);
+   CNiceChannel(bool controlling = false);
+   CNiceChannel(int version, bool controlling = false);
    ~CNiceChannel();
 
    void open(const sockaddr* addr = NULL);
@@ -92,6 +92,9 @@ public:
    // Block until candidate gathering has completed.
    void waitForCandidates();
 
+   // Specify whether this agent is in controlling mode.
+   void setControllingMode(bool controlling);
+
 private:
    static void cb_recv(NiceAgent* agent, guint stream_id, guint component_id,
                        guint len, gchar* buf, gpointer data);
@@ -119,6 +122,7 @@ private:
    bool           m_bConnected;
    bool           m_bFailed;
    bool           m_bGatheringDone;
+   bool           m_bControlling;
 };
 
 #endif // USE_LIBNICE

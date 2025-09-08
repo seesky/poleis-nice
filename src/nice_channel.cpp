@@ -9,7 +9,7 @@
 #include <winsock2.h>
 #endif
 
-CNiceChannel::CNiceChannel():
+CNiceChannel::CNiceChannel(bool controlling):
 m_pAgent(NULL),
 m_iStreamID(0),
 m_iComponentID(0),
@@ -21,13 +21,14 @@ m_iSndBufSize(65536),
 m_iRcvBufSize(65536),
 m_bConnected(false),
 m_bFailed(false),
-m_bGatheringDone(false)
+m_bGatheringDone(false),
+m_bControlling(controlling)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
 }
 
-CNiceChannel::CNiceChannel(int version):
+CNiceChannel::CNiceChannel(int version, bool controlling):
 m_pAgent(NULL),
 m_iStreamID(0),
 m_iComponentID(0),
@@ -39,7 +40,8 @@ m_iSndBufSize(65536),
 m_iRcvBufSize(65536),
 m_bConnected(false),
 m_bFailed(false),
-m_bGatheringDone(false)
+m_bGatheringDone(false),
+m_bControlling(controlling)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
@@ -70,6 +72,8 @@ void CNiceChannel::open(const sockaddr* addr)
       m_pAgent = nice_agent_new(m_pContext, NICE_COMPATIBILITY_RFC5245);
       if (NULL == m_pAgent)
          throw CUDTException(3, 2, 0);
+
+      nice_agent_set_controlling_mode(m_pAgent, m_bControlling ? TRUE : FALSE);
 
       m_iStreamID = nice_agent_add_stream(m_pAgent, 1);
       if (0 == m_iStreamID)
@@ -310,6 +314,11 @@ int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates
    int r = nice_agent_set_remote_candidates(m_pAgent, m_iStreamID, m_iComponentID, list);
    g_slist_free_full(list, (GDestroyNotify)nice_candidate_free);
    return r;
+}
+
+void CNiceChannel::setControllingMode(bool controlling)
+{
+   m_bControlling = controlling;
 }
 
 void CNiceChannel::waitForCandidates()
