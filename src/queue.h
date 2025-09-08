@@ -42,7 +42,11 @@ written by
 #ifndef __UDT_QUEUE_H__
 #define __UDT_QUEUE_H__
 
+#ifdef USE_LIBNICE
+#include "nice_channel.h"
+#else
 #include "channel.h"
+#endif
 #include "common.h"
 #include "packet.h"
 #include <list>
@@ -384,7 +388,11 @@ public:
       // Returned value:
       //    None.
 
+#ifdef USE_LIBNICE
+   void init(CNiceChannel* c, CTimer* t);
+#else
    void init(CChannel* c, CTimer* t);
+#endif
 
       // Functionality:
       //    Send out a packet to a given address.
@@ -406,9 +414,13 @@ private:
    pthread_t m_WorkerThread;
 
 private:
-   CSndUList* m_pSndUList;		// List of UDT instances for data sending
-   CChannel* m_pChannel;                // The UDP channel for data sending
-   CTimer* m_pTimer;			// Timing facility
+    CSndUList* m_pSndUList;              // List of UDT instances for data sending
+#ifdef USE_LIBNICE
+    CNiceChannel* m_pChannel;                // The UDP channel for data sending
+#else
+    CChannel* m_pChannel;                // The UDP channel for data sending
+#endif
+    CTimer* m_pTimer;                    // Timing facility
 
    pthread_mutex_t m_WindowLock;
    pthread_cond_t m_WindowCond;
@@ -444,7 +456,11 @@ public:
       // Returned value:
       //    None.
 
+#ifdef USE_LIBNICE
+   void init(int size, int payload, int version, int hsize, CNiceChannel* c, CTimer* t);
+#else
    void init(int size, int payload, int version, int hsize, CChannel* c, CTimer* t);
+#endif
 
       // Functionality:
       //    Read a packet for a specific UDT socket id.
@@ -468,9 +484,13 @@ private:
 private:
    CUnitQueue m_UnitQueue;		// The received packet queue
 
-   CRcvUList* m_pRcvUList;		// List of UDT instances that will read packets from the queue
-   CHash* m_pHash;			// Hash table for UDT socket looking up
-   CChannel* m_pChannel;		// UDP channel for receving packets
+   CRcvUList* m_pRcvUList;              // List of UDT instances that will read packets from the queue
+   CHash* m_pHash;                      // Hash table for UDT socket looking up
+#ifdef USE_LIBNICE
+   CNiceChannel* m_pChannel;                // UDP channel for receving packets
+#else
+   CChannel* m_pChannel;                // UDP channel for receving packets
+#endif
    CTimer* m_pTimer;			// shared timer with the snd queue
 
    int m_iPayloadSize;                  // packet payload size
@@ -510,9 +530,13 @@ private:
 
 struct CMultiplexer
 {
-   CSndQueue* m_pSndQueue;	// The sending queue
-   CRcvQueue* m_pRcvQueue;	// The receiving queue
-   CChannel* m_pChannel;	// The UDP channel for sending and receiving
+   CSndQueue* m_pSndQueue;      // The sending queue
+   CRcvQueue* m_pRcvQueue;      // The receiving queue
+#ifdef USE_LIBNICE
+   CNiceChannel* m_pChannel;        // The UDP channel for sending and receiving
+#else
+   CChannel* m_pChannel;        // The UDP channel for sending and receiving
+#endif
    CTimer* m_pTimer;		// The timer
 
    int m_iPort;			// The UDP port number of this multiplexer

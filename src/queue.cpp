@@ -487,7 +487,11 @@ CSndQueue::~CSndQueue()
    delete m_pSndUList;
 }
 
+#ifdef USE_LIBNICE
+void CSndQueue::init(CNiceChannel* c, CTimer* t)
+#else
 void CSndQueue::init(CChannel* c, CTimer* t)
+#endif
 {
    m_pChannel = c;
    m_pTimer = t;
@@ -937,7 +941,11 @@ CRcvQueue::~CRcvQueue()
    }
 }
 
+#ifdef USE_LIBNICE
+void CRcvQueue::init(int qsize, int payload, int version, int hsize, CNiceChannel* cc, CTimer* t)
+#else
 void CRcvQueue::init(int qsize, int payload, int version, int hsize, CChannel* cc, CTimer* t)
+#endif
 {
    m_iPayloadSize = payload;
 
