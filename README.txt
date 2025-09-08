@@ -34,6 +34,16 @@ On Windows systems, use the Visual C++ project files in ./win directory.
 
 Note for BSD users, please use GNU Make.
 
+The build requires libnice and its GLib dependency. The Makefiles use
+pkg-config to discover the necessary compiler and linker flags. If
+pkg-config is not available, set the NICE_CFLAGS and NICE_LIBS
+environment variables before invoking make, for example:
+
+    export NICE_CFLAGS='-I/usr/include/nice -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include'
+    export NICE_LIBS='-lnice -lglib-2.0'
+
+Adjust the paths to match your installation locations.
+
 To use UDT in your application:
 Read index.htm in ./doc. The documentation is in HTML format and requires your
 browser to support JavaScript.
