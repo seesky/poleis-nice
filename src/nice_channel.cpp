@@ -1,6 +1,7 @@
 #ifdef USE_LIBNICE
 
 #include "nice_channel.h"
+#include <nice/agent.h>
 #include <cstring>
 #ifndef WIN32
 #include <arpa/inet.h>
@@ -41,17 +42,42 @@ CNiceChannel::~CNiceChannel()
 
 void CNiceChannel::open(const sockaddr* addr)
 {
-   m_pContext = g_main_context_new();
-   m_pLoop = g_main_loop_new(m_pContext, FALSE);
-   m_pAgent = nice_agent_new(m_pContext, NICE_COMPATIBILITY_RFC5245);
+   try
+   {
+      m_pContext = g_main_context_new();
+      if (NULL == m_pContext)
+         throw CUDTException(3, 2, 0);
 
-   m_iStreamID = nice_agent_add_stream(m_pAgent, 1);
-   m_iComponentID = 1;
+      m_pLoop = g_main_loop_new(m_pContext, FALSE);
+      if (NULL == m_pLoop)
+         throw CUDTException(3, 2, 0);
 
-   m_pRecvQueue = g_async_queue_new();
-   nice_agent_attach_recv(m_pAgent, m_iStreamID, m_iComponentID, m_pContext, &CNiceChannel::cb_recv, this);
+      m_pAgent = nice_agent_new(m_pContext, NICE_COMPATIBILITY_RFC5245);
+      if (NULL == m_pAgent)
+         throw CUDTException(3, 2, 0);
 
-   m_pThread = g_thread_new("nice-loop", &CNiceChannel::cb_loop, this);
+      m_iStreamID = nice_agent_add_stream(m_pAgent, 1);
+      if (0 == m_iStreamID)
+         throw CUDTException(3, 2, 0);
+      m_iComponentID = 1;
+
+      m_pRecvQueue = g_async_queue_new();
+      if (NULL == m_pRecvQueue)
+         throw CUDTException(3, 2, 0);
+
+      if (!nice_agent_attach_recv(m_pAgent, m_iStreamID, m_iComponentID,
+                                  m_pContext, &CNiceChannel::cb_recv, this))
+         throw CUDTException(3, 1, 0);
+
+      m_pThread = g_thread_new("nice-loop", &CNiceChannel::cb_loop, this);
+      if (NULL == m_pThread)
+         throw CUDTException(3, 1, 0);
+   }
+   catch (CUDTException& e)
+   {
+      close();
+      throw;
+   }
 }
 
 void CNiceChannel::open(UDPSOCKET udpsock)
@@ -59,27 +85,40 @@ void CNiceChannel::open(UDPSOCKET udpsock)
    open();
 }
 
-void CNiceChannel::close() const
+void CNiceChannel::close()
 {
    if (m_pAgent)
-   {
       nice_agent_attach_recv(m_pAgent, m_iStreamID, m_iComponentID, NULL, NULL, NULL);
-   }
 
    if (m_pLoop)
       g_main_loop_quit(m_pLoop);
 
    if (m_pThread)
+   {
       g_thread_join(m_pThread);
+      m_pThread = NULL;
+   }
 
    if (m_pAgent)
+   {
       g_object_unref(m_pAgent);
+      m_pAgent = NULL;
+   }
    if (m_pLoop)
+   {
       g_main_loop_unref(m_pLoop);
+      m_pLoop = NULL;
+   }
    if (m_pContext)
+   {
       g_main_context_unref(m_pContext);
+      m_pContext = NULL;
+   }
    if (m_pRecvQueue)
+   {
       g_async_queue_unref(m_pRecvQueue);
+      m_pRecvQueue = NULL;
+   }
 }
 
 int CNiceChannel::getSndBufSize()
