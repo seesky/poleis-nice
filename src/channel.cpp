@@ -104,6 +104,15 @@ CChannel::~CChannel()
 #endif
 }
 
+int CChannel::waitForReady(int)
+{
+   // The default UDP channel is always ready.  Derived classes such as
+   // CChannelNice may override this behaviour to perform additional
+   // synchronization (e.g. waiting for ICE negotiation).  Returning 0
+   // indicates success, while a negative value signals failure.
+   return 0;
+}
+
 void CChannel::open(const sockaddr* addr)
 {
 #ifdef USE_LIBNICE

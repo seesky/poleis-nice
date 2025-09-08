@@ -560,6 +560,16 @@ void CUDT::listen()
    if (m_bListening)
       return;
 
+   // If the underlying channel performs additional negotiation (e.g.
+   // ICE for CChannelNice) we must wait for it to complete before
+   // marking the socket as listening.  This guarantees that subsequent
+   // handshake packets are sent only after the transport is ready.
+   if ((NULL != m_pSndQueue) && (NULL != m_pSndQueue->m_pChannel))
+   {
+      if (m_pSndQueue->m_pChannel->waitForReady() < 0)
+         throw CUDTException(5, 11, 0);
+   }
+
    // if there is already another socket listening on the same port
    if (m_pRcvQueue->setListener(this) < 0)
       throw CUDTException(5, 11, 0);
@@ -601,6 +611,23 @@ void CUDT::connect(const sockaddr* serv_addr)
    m_ConnReq.m_iReqType = (!m_bRendezvous) ? 1 : 0;
    m_ConnReq.m_iID = m_SocketID;
    CIPAddress::ntop(serv_addr, m_ConnReq.m_piPeerIP, m_iIPversion);
+
+   // When using a NICE based channel (CChannelNice), the ICE
+   // negotiation must be completed before any UDT level handshake can
+   // be performed.  The underlying channel provides a virtual
+   // waitForReady() method which blocks until the transport is ready or
+   // reports a failure.  If this step fails we abort the connection and
+   // propagate the error to the caller.
+   if ((NULL != m_pSndQueue) && (NULL != m_pSndQueue->m_pChannel))
+   {
+      if (m_pSndQueue->m_pChannel->waitForReady() < 0)
+      {
+         // Registration in the rendezvous queue is no longer needed on
+         // failure.
+         m_pRcvQueue->removeConnector(m_SocketID);
+         throw CUDTException(1, 3, 0);
+      }
+   }
 
    // Random Initial Sequence Number
    srand((unsigned int)CTimer::getTime());
@@ -908,6 +935,14 @@ void CUDT::connect(const sockaddr* peer, CHandShake* hs)
    hs->serialize(buffer, size);
    response.pack(0, NULL, buffer, size);
    response.m_iID = m_PeerID;
+   if ((NULL != m_pSndQueue) && (NULL != m_pSndQueue->m_pChannel))
+   {
+      if (m_pSndQueue->m_pChannel->waitForReady() < 0)
+      {
+         delete [] buffer;
+         throw CUDTException(1, 3, 0);
+      }
+   }
    m_pSndQueue->sendto(peer, response);
    delete [] buffer;
 }
@@ -2474,6 +2509,14 @@ int CUDT::listen(sockaddr* addr, CPacket& packet)
       packet.m_iID = hs.m_iID;
       int size = packet.getLength();
       hs.serialize(packet.m_pcData, size);
+      // Ensure the underlying channel is ready before responding.  This
+      // is required for transports such as CChannelNice where ICE may
+      // still be in progress.
+      if ((NULL != m_pSndQueue) && (NULL != m_pSndQueue->m_pChannel))
+      {
+         if (m_pSndQueue->m_pChannel->waitForReady() < 0)
+            return -1;
+      }
       m_pSndQueue->sendto(addr, packet);
       return 0;
    }
@@ -2502,6 +2545,11 @@ int CUDT::listen(sockaddr* addr, CPacket& packet)
          int size = CHandShake::m_iContentSize;
          hs.serialize(packet.m_pcData, size);
          packet.m_iID = id;
+         if ((NULL != m_pSndQueue) && (NULL != m_pSndQueue->m_pChannel))
+         {
+            if (m_pSndQueue->m_pChannel->waitForReady() < 0)
+               return -1;
+         }
          m_pSndQueue->sendto(addr, packet);
       }
       else
@@ -2512,17 +2560,22 @@ int CUDT::listen(sockaddr* addr, CPacket& packet)
 
          // send back a response if connection failed or connection already existed
          // new connection response should be sent in connect()
-         if (result != 1)
-         {
-            int size = CHandShake::m_iContentSize;
-            hs.serialize(packet.m_pcData, size);
-            packet.m_iID = id;
-            m_pSndQueue->sendto(addr, packet);
-         }
-         else
-         {
-            // a new connection has been created, enable epoll for write 
-            s_UDTUnited.m_EPoll.update_events(m_SocketID, m_sPollID, UDT_EPOLL_OUT, true);
+        if (result != 1)
+        {
+           int size = CHandShake::m_iContentSize;
+           hs.serialize(packet.m_pcData, size);
+           packet.m_iID = id;
+           if ((NULL != m_pSndQueue) && (NULL != m_pSndQueue->m_pChannel))
+           {
+              if (m_pSndQueue->m_pChannel->waitForReady() < 0)
+                 return -1;
+           }
+           m_pSndQueue->sendto(addr, packet);
+        }
+        else
+        {
+           // a new connection has been created, enable epoll for write
+           s_UDTUnited.m_EPoll.update_events(m_SocketID, m_sPollID, UDT_EPOLL_OUT, true);
          }
       }
    }
