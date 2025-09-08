@@ -10,6 +10,13 @@ endif
 
 CCFLAGS = -fPIC -Wall -Wextra -D$(os) -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden
 
+ifdef USE_LIBNICE
+NICE_CFLAGS := $(shell pkg-config --cflags nice)
+NICE_LIBS   := $(shell pkg-config --libs nice)
+CCFLAGS += -DUSE_LIBNICE $(NICE_CFLAGS)
+LIBS += $(NICE_LIBS)
+endif
+
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32
 endif
@@ -40,9 +47,9 @@ all: libudt.so libudt.a udt
 
 libudt.so: $(OBJS)
 ifneq ($(os), OSX)
-	$(C++) -shared -o $@ $^
+	$(C++) -shared -o $@ $^ $(LIBS)
 else
-	$(C++) -dynamiclib -o libudt.dylib -lstdc++ -lpthread -lm $^
+	$(C++) -dynamiclib -o libudt.dylib -lstdc++ -lpthread -lm $^ $(LIBS)
 endif
 
 libudt.a: $(OBJS)
