@@ -231,6 +231,19 @@ int CUDTUnited::cleanup()
    if (!m_bGCStatus)
       return 0;
 
+   // Close all remaining multiplexers and their channels before the worker
+   // threads that depend on them are destroyed.
+   for (map<int, CMultiplexer>::iterator i = m_mMultiplexer.begin(); i != m_mMultiplexer.end(); ++ i)
+   {
+      if (i->second.m_pChannel)
+         i->second.m_pChannel->close();
+      delete i->second.m_pSndQueue;
+      delete i->second.m_pRcvQueue;
+      delete i->second.m_pTimer;
+      delete i->second.m_pChannel;
+   }
+   m_mMultiplexer.clear();
+
    m_bClosing = true;
    #ifndef WIN32
       pthread_cond_signal(&m_GCStopCond);
@@ -1291,11 +1304,6 @@ void CUDTUnited::removeSocket(const UDTSOCKET u)
          m_PeerRec.erase(j);
    }
 
-   // delete this one
-   i->second->m_pUDT->close();
-   delete i->second;
-   m_ClosedSockets.erase(i);
-
    map<int, CMultiplexer>::iterator m;
    m = m_mMultiplexer.find(mid);
    if (m == m_mMultiplexer.end())
@@ -1304,10 +1312,21 @@ void CUDTUnited::removeSocket(const UDTSOCKET u)
       return;
    }
 
+   // delete this one
+   i->second->m_pUDT->close();
+
+   // If this is the last socket using the multiplexer, close the channel
+   // before any worker threads in the queues are terminated by the
+   // destructors below.
+   if (m->second.m_iRefCount == 1)
+      m->second.m_pChannel->close();
+
+   delete i->second;
+   m_ClosedSockets.erase(i);
+
    m->second.m_iRefCount --;
    if (0 == m->second.m_iRefCount)
    {
-      m->second.m_pChannel->close();
       delete m->second.m_pSndQueue;
       delete m->second.m_pRcvQueue;
       delete m->second.m_pTimer;
