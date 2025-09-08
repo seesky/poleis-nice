@@ -10,6 +10,13 @@ endif
 
 CCFLAGS = -Wall -D$(os) -I../src -finline-functions -O3
 
+ifdef USE_LIBNICE
+NICE_CFLAGS := $(shell pkg-config --cflags nice)
+NICE_LIBS   := $(shell pkg-config --libs nice)
+CCFLAGS += -DUSE_LIBNICE $(NICE_CFLAGS)
+LDFLAGS += $(NICE_LIBS)
+endif
+
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32 #-mcpu=pentiumpro -march=pentiumpro -mmmx -msse
 endif

@@ -45,6 +45,11 @@ written by
 #include "udt.h"
 #include "packet.h"
 
+#ifdef USE_LIBNICE
+#include <nice/agent.h>
+#include <glib.h>
+#endif
+
 
 class CChannel
 {
@@ -158,6 +163,12 @@ private:
    void setUDPSockOpt();
 
 private:
+#ifdef USE_LIBNICE
+   NiceAgent* m_pAgent;                 // libnice agent
+   guint      m_uStreamID;              // libnice stream identifier
+   guint      m_uComponentID;           // libnice component identifier
+#endif
+
    int m_iIPversion;                    // IP version
    int m_iSockAddrSize;                 // socket address structure size (pre-defined to avoid run-time test)
 
