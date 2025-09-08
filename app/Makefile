@@ -9,6 +9,7 @@ ifndef arch
 endif
 
 CCFLAGS = -Wall -D$(os) -I../src -finline-functions -O3
+CFLAGS += -I/path/to/libnice/include
 
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32 #-mcpu=pentiumpro -march=pentiumpro -mmmx -msse
@@ -26,7 +27,7 @@ ifeq ($(arch), SPARC)
    CCFLAGS += -DSPARC
 endif
 
-LDFLAGS = -L../src -ludt -lstdc++ -lpthread -lm
+LDFLAGS = -L../src -L/path/to/libnice/lib -ludt -lnice -lstdc++ -lpthread -lm
 
 ifeq ($(os), UNIX)
    LDFLAGS += -lsocket
@@ -43,7 +44,7 @@ APP = appserver appclient sendfile recvfile test
 all: $(APP)
 
 %.o: %.cpp
-	$(C++) $(CCFLAGS) $< -c
+	$(C++) $(CCFLAGS) $(CFLAGS) $< -c
 
 appserver: appserver.o
 	$(C++) $^ -o $@ $(LDFLAGS)

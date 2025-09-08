@@ -10,6 +10,11 @@ endif
 
 CCFLAGS = -fPIC -Wall -Wextra -D$(os) -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden
 
+# Paths and libraries for libnice
+CFLAGS += -I/path/to/libnice/include
+LDFLAGS += -L/path/to/libnice/lib
+LIBS += -lnice
+
 ifeq ($(arch), IA32)
    CCFLAGS += -DIA32
 endif
@@ -36,13 +41,13 @@ DIR = $(shell pwd)
 all: libudt.so libudt.a udt
 
 %.o: %.cpp %.h udt.h
-	$(C++) $(CCFLAGS) $< -c
+	$(C++) $(CCFLAGS) $(CFLAGS) $< -c
 
 libudt.so: $(OBJS)
 ifneq ($(os), OSX)
-	$(C++) -shared -o $@ $^
+	$(C++) -shared $(LDFLAGS) -o $@ $^ $(LIBS)
 else
-	$(C++) -dynamiclib -o libudt.dylib -lstdc++ -lpthread -lm $^
+	$(C++) -dynamiclib $(LDFLAGS) -o libudt.dylib -lstdc++ -lpthread -lm $^ $(LIBS)
 endif
 
 libudt.a: $(OBJS)
