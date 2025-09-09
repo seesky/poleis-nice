@@ -135,6 +135,11 @@ int CEPoll::add_ssock(const int eid, const SYSSOCKET& s, const int* events)
    ev.data.fd = s;
    if (::epoll_ctl(p->second.m_iLocalID, EPOLL_CTL_ADD, s, &ev) < 0)
       throw CUDTException();
+#else
+   if (!events || (*events & UDT_EPOLL_IN))
+      p->second.m_sLocalsIn.insert(s);
+   if (!events || (*events & UDT_EPOLL_OUT))
+      p->second.m_sLocalsOut.insert(s);
 #endif
 
    p->second.m_sLocals.insert(s);
@@ -169,6 +174,9 @@ int CEPoll::remove_ssock(const int eid, const SYSSOCKET& s)
    epoll_event ev;  // ev is ignored, for compatibility with old Linux kernel only.
    if (::epoll_ctl(p->second.m_iLocalID, EPOLL_CTL_DEL, s, &ev) < 0)
       throw CUDTException();
+#else
+   p->second.m_sLocalsIn.erase(s);
+   p->second.m_sLocalsOut.erase(s);
 #endif
 
    p->second.m_sLocals.erase(s);
@@ -256,32 +264,32 @@ int CEPoll::wait(const int eid, set<UDTSOCKET>* readfds, set<UDTSOCKET>* writefd
          FD_ZERO(&readfds);
          FD_ZERO(&writefds);
 
-         for (set<SYSSOCKET>::const_iterator i = p->second.m_sLocals.begin(); i != p->second.m_sLocals.end(); ++ i)
-         {
-            if (lrfds)
+         if (lrfds)
+            for (set<SYSSOCKET>::const_iterator i = p->second.m_sLocalsIn.begin(); i != p->second.m_sLocalsIn.end(); ++ i)
                FD_SET(*i, &readfds);
-            if (lwfds)
+         if (lwfds)
+            for (set<SYSSOCKET>::const_iterator i = p->second.m_sLocalsOut.begin(); i != p->second.m_sLocalsOut.end(); ++ i)
                FD_SET(*i, &writefds);
-         }
 
          timeval tv;
          tv.tv_sec = 0;
          tv.tv_usec = 0;
          if (::select(0, &readfds, &writefds, NULL, &tv) > 0)
          {
-            for (set<SYSSOCKET>::const_iterator i = p->second.m_sLocals.begin(); i != p->second.m_sLocals.end(); ++ i)
-            {
-               if (lrfds && FD_ISSET(*i, &readfds))
-               {
-                  lrfds->insert(*i);
-                  ++ total;
-               }
-               if (lwfds && FD_ISSET(*i, &writefds))
-               {
-                  lwfds->insert(*i);
-                  ++ total;
-               }
-            }
+            if (lrfds)
+               for (set<SYSSOCKET>::const_iterator i = p->second.m_sLocalsIn.begin(); i != p->second.m_sLocalsIn.end(); ++ i)
+                  if (FD_ISSET(*i, &readfds))
+                  {
+                     lrfds->insert(*i);
+                     ++ total;
+                  }
+            if (lwfds)
+               for (set<SYSSOCKET>::const_iterator i = p->second.m_sLocalsOut.begin(); i != p->second.m_sLocalsOut.end(); ++ i)
+                  if (FD_ISSET(*i, &writefds))
+                  {
+                     lwfds->insert(*i);
+                     ++ total;
+                  }
          }
          #endif
       }
