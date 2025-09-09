@@ -11,10 +11,12 @@ endif
 CXXFLAGS = -Wall -D$(os) -I../src -finline-functions -O3
 
 PKG_CONFIG ?= pkg-config
-NICE_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags nice 2>/dev/null)
+NICE_CFLAGS := $(shell $(PKG_CONFIG) --cflags nice 2>/dev/null)
+ifneq ($(findstring glib-2.0,$(NICE_CFLAGS)),glib-2.0)
+NICE_CFLAGS := $(shell $(PKG_CONFIG) --cflags nice glib-2.0 2>/dev/null)
+endif
 NICE_LIBS ?= $(shell $(PKG_CONFIG) --libs nice 2>/dev/null)
 CXXFLAGS += $(NICE_CFLAGS)
-LIBS += $(NICE_LIBS)
 # For systems without pkg-config, set NICE_CFLAGS and NICE_LIBS manually, e.g.:
 # NICE_CFLAGS=-I/usr/include/nice -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
 # NICE_LIBS=-lnice -lglib-2.0
@@ -35,7 +37,7 @@ ifeq ($(arch), SPARC)
    CXXFLAGS += -DSPARC
 endif
 
-LIBS = -L../src -ludt -lstdc++ -lpthread -lm
+LIBS = -L../src -ludt -lstdc++ -lpthread -lm $(NICE_LIBS)
 
 ifeq ($(os), UNIX)
    LIBS += -lsocket
