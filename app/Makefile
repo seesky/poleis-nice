@@ -47,7 +47,7 @@ endif
 
 DIR = $(shell pwd)
 
-APP = appserver appclient sendfile recvfile test
+APP = appserver appclient sendfile recvfile test appniceserver appniceclient
 
 all: $(APP)
 
@@ -63,6 +63,10 @@ sendfile: sendfile.o
 recvfile: recvfile.o
 	$(CXX) $^ -o $@ $(LIBS)
 test: test.o
+	$(CXX) $^ -o $@ $(LIBS)
+appniceserver: appniceserver.o
+	$(CXX) $^ -o $@ $(LIBS)
+appniceclient: appniceclient.o
 	$(CXX) $^ -o $@ $(LIBS)
 
 clean:
