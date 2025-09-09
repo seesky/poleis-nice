@@ -343,7 +343,7 @@ CGuard::~CGuard()
 #else
 CGuard::~CGuard()
 {
-   if (WAIT_FAILED != m_iLocked)
+   if (WAIT_FAILED != static_cast<DWORD>(m_iLocked))
       ReleaseMutex(m_Mutex);
 }
 #endif
