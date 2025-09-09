@@ -418,6 +418,18 @@ m_strMsg()
 {
 }
 
+UDT_API CUDTException& CUDTException::operator=(const CUDTException& e)
+{
+   if (this != &e)
+   {
+      m_iMajor = e.m_iMajor;
+      m_iMinor = e.m_iMinor;
+      m_iErrno = e.m_iErrno;
+      m_strMsg.clear();
+   }
+   return *this;
+}
+
 UDT_API CUDTException::~CUDTException()
 {
 }
