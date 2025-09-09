@@ -317,83 +317,108 @@ void CTimer::sleep()
 
 //
 // Automatically lock in constructor
+#ifndef WIN32
 CGuard::CGuard(pthread_mutex_t& lock):
 m_Mutex(lock),
 m_iLocked()
 {
-   #ifndef WIN32
-      m_iLocked = pthread_mutex_lock(&m_Mutex);
-   #else
-      m_iLocked = WaitForSingleObject(m_Mutex, INFINITE);
-   #endif
+   m_iLocked = pthread_mutex_lock(&m_Mutex);
 }
+#else
+CGuard::CGuard(HANDLE& lock):
+m_Mutex(lock),
+m_iLocked()
+{
+   m_iLocked = WaitForSingleObject(m_Mutex, INFINITE);
+}
+#endif
 
 // Automatically unlock in destructor
+#ifndef WIN32
 CGuard::~CGuard()
 {
-   #ifndef WIN32
-      if (0 == m_iLocked)
-         pthread_mutex_unlock(&m_Mutex);
-   #else
-      if (WAIT_FAILED != m_iLocked)
-         ReleaseMutex(m_Mutex);
-   #endif
+   if (0 == m_iLocked)
+      pthread_mutex_unlock(&m_Mutex);
 }
+#else
+CGuard::~CGuard()
+{
+   if (WAIT_FAILED != m_iLocked)
+      ReleaseMutex(m_Mutex);
+}
+#endif
 
+#ifndef WIN32
 void CGuard::enterCS(pthread_mutex_t& lock)
 {
-   #ifndef WIN32
-      pthread_mutex_lock(&lock);
-   #else
-      WaitForSingleObject(lock, INFINITE);
-   #endif
+   pthread_mutex_lock(&lock);
 }
+#else
+void CGuard::enterCS(HANDLE& lock)
+{
+   WaitForSingleObject(lock, INFINITE);
+}
+#endif
 
+#ifndef WIN32
 void CGuard::leaveCS(pthread_mutex_t& lock)
 {
-   #ifndef WIN32
-      pthread_mutex_unlock(&lock);
-   #else
-      ReleaseMutex(lock);
-   #endif
+   pthread_mutex_unlock(&lock);
 }
+#else
+void CGuard::leaveCS(HANDLE& lock)
+{
+   ReleaseMutex(lock);
+}
+#endif
 
+#ifndef WIN32
 void CGuard::createMutex(pthread_mutex_t& lock)
 {
-   #ifndef WIN32
-      pthread_mutex_init(&lock, NULL);
-   #else
-      lock = CreateMutex(NULL, false, NULL);
-   #endif
+   pthread_mutex_init(&lock, NULL);
 }
+#else
+void CGuard::createMutex(HANDLE& lock)
+{
+   lock = CreateMutex(NULL, false, NULL);
+}
+#endif
 
+#ifndef WIN32
 void CGuard::releaseMutex(pthread_mutex_t& lock)
 {
-   #ifndef WIN32
-      pthread_mutex_destroy(&lock);
-   #else
-      CloseHandle(lock);
-   #endif
+   pthread_mutex_destroy(&lock);
 }
+#else
+void CGuard::releaseMutex(HANDLE& lock)
+{
+   CloseHandle(lock);
+}
+#endif
 
+#ifndef WIN32
 void CGuard::createCond(pthread_cond_t& cond)
 {
-   #ifndef WIN32
-      pthread_cond_init(&cond, NULL);
-   #else
-      cond = CreateEvent(NULL, false, false, NULL);
-   #endif
+   pthread_cond_init(&cond, NULL);
 }
+#else
+void CGuard::createCond(HANDLE& cond)
+{
+   cond = CreateEvent(NULL, false, false, NULL);
+}
+#endif
 
+#ifndef WIN32
 void CGuard::releaseCond(pthread_cond_t& cond)
 {
-   #ifndef WIN32
-      pthread_cond_destroy(&cond);
-   #else
-      CloseHandle(cond);
-   #endif
-
+   pthread_cond_destroy(&cond);
 }
+#else
+void CGuard::releaseCond(HANDLE& cond)
+{
+   CloseHandle(cond);
+}
+#endif
 
 //
 UDT_API CUDTException::CUDTException(int major, int minor, int err):
