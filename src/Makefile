@@ -11,7 +11,10 @@ endif
 CXXFLAGS = -fPIC -Wall -Wextra -D$(os) -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden
 
 PKG_CONFIG ?= pkg-config
-NICE_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags nice 2>/dev/null)
+NICE_CFLAGS := $(shell $(PKG_CONFIG) --cflags nice 2>/dev/null)
+ifneq ($(findstring glib-2.0,$(NICE_CFLAGS)),glib-2.0)
+NICE_CFLAGS := $(shell $(PKG_CONFIG) --cflags nice glib-2.0 2>/dev/null)
+endif
 NICE_LIBS ?= $(shell $(PKG_CONFIG) --libs nice 2>/dev/null)
 CXXFLAGS += $(NICE_CFLAGS)
 LIBS += $(NICE_LIBS)
