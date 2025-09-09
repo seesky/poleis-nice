@@ -212,10 +212,17 @@ private:
    int m_iArrayLength;			// physical length of the array
    int m_iLastEntry;			// position of last entry on the heap array
 
+#ifdef WIN32
+   HANDLE m_ListLock;
+
+   HANDLE* m_pWindowLock;
+   HANDLE* m_pWindowCond;
+#else
    pthread_mutex_t m_ListLock;
 
    pthread_mutex_t* m_pWindowLock;
    pthread_cond_t* m_pWindowCond;
+#endif
 
    CTimer* m_pTimer;
 
@@ -366,7 +373,11 @@ private:
    };
    std::list<CRL> m_lRendezvousID;      // The sockets currently in rendezvous mode
 
+#ifdef WIN32
+   HANDLE m_RIDVectorLock;
+#else
    pthread_mutex_t m_RIDVectorLock;
+#endif
 };
 
 class CSndQueue
@@ -411,7 +422,11 @@ private:
    static DWORD WINAPI worker(LPVOID param);
 #endif
 
+#ifdef WIN32
+   HANDLE m_WorkerThread;
+#else
    pthread_t m_WorkerThread;
+#endif
 
 private:
     CSndUList* m_pSndUList;              // List of UDT instances for data sending
@@ -422,11 +437,20 @@ private:
 #endif
     CTimer* m_pTimer;                    // Timing facility
 
+   #ifdef WIN32
+   HANDLE m_WindowLock;
+   HANDLE m_WindowCond;
+   #else
    pthread_mutex_t m_WindowLock;
    pthread_cond_t m_WindowCond;
+   #endif
 
    volatile bool m_bClosing;		// closing the worker
+#ifdef WIN32
+   HANDLE m_ExitCond;
+#else
    pthread_cond_t m_ExitCond;
+#endif
 
 private:
    CSndQueue(const CSndQueue&);
@@ -479,7 +503,11 @@ private:
    static DWORD WINAPI worker(LPVOID param);
 #endif
 
+#ifdef WIN32
+   HANDLE m_WorkerThread;
+#else
    pthread_t m_WorkerThread;
+#endif
 
 private:
    CUnitQueue m_UnitQueue;		// The received packet queue
@@ -496,7 +524,11 @@ private:
    int m_iPayloadSize;                  // packet payload size
 
    volatile bool m_bClosing;            // closing the workder
+#ifdef WIN32
+   HANDLE m_ExitCond;
+#else
    pthread_cond_t m_ExitCond;
+#endif
 
 private:
    int setListener(CUDT* u);
@@ -512,16 +544,29 @@ private:
    void storePkt(int32_t id, CPacket* pkt);
 
 private:
+   #ifdef WIN32
+   HANDLE m_LSLock;
+   #else
    pthread_mutex_t m_LSLock;
+   #endif
    CUDT* m_pListener;                                   // pointer to the (unique, if any) listening UDT entity
    CRendezvousQueue* m_pRendezvousQueue;                // The list of sockets in rendezvous mode
 
    std::vector<CUDT*> m_vNewEntry;                      // newly added entries, to be inserted
+   #ifdef WIN32
+   HANDLE m_IDLock;
+   #else
    pthread_mutex_t m_IDLock;
+   #endif
 
    std::map<int32_t, std::queue<CPacket*> > m_mBuffer;	// temporary buffer for rendezvous connection request
+   #ifdef WIN32
+   HANDLE m_PassLock;
+   HANDLE m_PassCond;
+   #else
    pthread_mutex_t m_PassLock;
    pthread_cond_t m_PassCond;
+   #endif
 
 private:
    CRcvQueue(const CRcvQueue&);

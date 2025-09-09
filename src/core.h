@@ -372,6 +372,20 @@ private: // Receiving related data
    int32_t m_iPeerISN;                          // Initial Sequence Number of the peer side
 
 private: // synchronization: mutexes and conditions
+#ifdef WIN32
+   HANDLE m_ConnectionLock;            // used to synchronize connection operation
+
+   HANDLE m_SendBlockCond;             // used to block "send" call
+   HANDLE m_SendBlockLock;             // lock associated to m_SendBlockCond
+
+   HANDLE m_AckLock;                   // used to protected sender's loss list when processing ACK
+
+   HANDLE m_RecvDataCond;              // used to block "recv" when there is no data
+   HANDLE m_RecvDataLock;              // lock associated to m_RecvDataCond
+
+   HANDLE m_SendLock;                  // used to synchronize "send" call
+   HANDLE m_RecvLock;                  // used to synchronize "recv" call
+#else
    pthread_mutex_t m_ConnectionLock;            // used to synchronize connection operation
 
    pthread_cond_t m_SendBlockCond;              // used to block "send" call
@@ -384,6 +398,7 @@ private: // synchronization: mutexes and conditions
 
    pthread_mutex_t m_SendLock;                  // used to synchronize "send" call
    pthread_mutex_t m_RecvLock;                  // used to synchronize "recv" call
+#endif
 
    void initSynch();
    void destroySynch();

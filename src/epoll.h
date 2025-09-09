@@ -163,10 +163,18 @@ public: // for CUDT to acknowledge IO status
 
 private:
    int m_iIDSeed;                            // seed to generate a new ID
+#ifdef WIN32
+   HANDLE m_SeedLock;
+#else
    pthread_mutex_t m_SeedLock;
+#endif
 
    std::map<int, CEPollDesc> m_mPolls;       // all epolls
+#ifdef WIN32
+   HANDLE m_EPollLock;
+#else
    pthread_mutex_t m_EPollLock;
+#endif
 };
 
 

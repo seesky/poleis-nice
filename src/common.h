@@ -53,8 +53,8 @@ written by
 #include "udt.h"
 
 
-#ifdef WIN32
-   // Windows compability
+#if defined(WIN32) && !defined(__MINGW32__)
+   // Windows compatibility
    typedef HANDLE pthread_t;
    typedef HANDLE pthread_mutex_t;
    typedef HANDLE pthread_cond_t;
@@ -170,11 +170,19 @@ private:
 private:
    uint64_t m_ullSchedTime;             // next schedulled time
 
+#ifdef WIN32
+   HANDLE m_TickCond;
+   HANDLE m_TickLock;
+
+   static HANDLE m_EventCond;
+   static HANDLE m_EventLock;
+#else
    pthread_cond_t m_TickCond;
    pthread_mutex_t m_TickLock;
 
    static pthread_cond_t m_EventCond;
    static pthread_mutex_t m_EventLock;
+#endif
 
 private:
    static uint64_t s_ullCPUFrequency;	// CPU frequency : clock cycles per microsecond
@@ -187,10 +195,24 @@ private:
 class CGuard
 {
 public:
+#ifdef WIN32
+   CGuard(HANDLE& lock);
+#else
    CGuard(pthread_mutex_t& lock);
+#endif
    ~CGuard();
 
 public:
+#ifdef WIN32
+   static void enterCS(HANDLE& lock);
+   static void leaveCS(HANDLE& lock);
+
+   static void createMutex(HANDLE& lock);
+   static void releaseMutex(HANDLE& lock);
+
+   static void createCond(HANDLE& cond);
+   static void releaseCond(HANDLE& cond);
+#else
    static void enterCS(pthread_mutex_t& lock);
    static void leaveCS(pthread_mutex_t& lock);
 
@@ -199,9 +221,14 @@ public:
 
    static void createCond(pthread_cond_t& cond);
    static void releaseCond(pthread_cond_t& cond);
+#endif
 
 private:
+#ifdef WIN32
+   HANDLE& m_Mutex;            // Alias name of the mutex to be protected
+#else
    pthread_mutex_t& m_Mutex;            // Alias name of the mutex to be protected
+#endif
    int m_iLocked;                       // Locking status
 
    CGuard& operator=(const CGuard&);

@@ -119,7 +119,11 @@ private:
    void increase();
 
 private:
+#ifdef WIN32
+   HANDLE m_BufLock;           // used to synchronize buffer operation
+#else
    pthread_mutex_t m_BufLock;           // used to synchronize buffer operation
+#endif
 
    struct Block
    {

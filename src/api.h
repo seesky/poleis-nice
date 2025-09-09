@@ -77,14 +77,23 @@ public:
    std::set<UDTSOCKET>* m_pQueuedSockets;    // set of connections waiting for accept()
    std::set<UDTSOCKET>* m_pAcceptSockets;    // set of accept()ed connections
 
+#ifdef WIN32
+   HANDLE m_AcceptCond;              // used to block "accept" call
+   HANDLE m_AcceptLock;             // mutex associated to m_AcceptCond
+#else
    pthread_cond_t m_AcceptCond;              // used to block "accept" call
    pthread_mutex_t m_AcceptLock;             // mutex associated to m_AcceptCond
+#endif
 
    unsigned int m_uiBackLog;                 // maximum number of connections in queue
 
    int m_iMuxID;                             // multiplexer ID
 
+#ifdef WIN32
+   HANDLE m_ControlLock;            // lock this socket exclusively for control APIs: bind/listen/connect
+#else
    pthread_mutex_t m_ControlLock;            // lock this socket exclusively for control APIs: bind/listen/connect
+#endif
 
 private:
    CUDTSocket(const CUDTSocket&);
@@ -205,22 +214,29 @@ private:
 private:
    std::map<UDTSOCKET, CUDTSocket*> m_Sockets;       // stores all the socket structures
 
+#ifdef WIN32
+   HANDLE m_ControlLock;                    // used to synchronize UDT API
+
+   HANDLE m_IDLock;                         // used to synchronize ID generation
+#else
    pthread_mutex_t m_ControlLock;                    // used to synchronize UDT API
 
    pthread_mutex_t m_IDLock;                         // used to synchronize ID generation
+#endif
    UDTSOCKET m_SocketID;                             // seed to generate a new unique socket ID
 
    std::map<int64_t, std::set<UDTSOCKET> > m_PeerRec;// record sockets from peers to avoid repeated connection request, int64_t = (socker_id << 30) + isn
 
 private:
+#ifdef WIN32
+   DWORD m_TLSError;                         // thread local error record (last error)
+   std::map<DWORD, CUDTException*> m_mTLSRecord;
+   void checkTLSValue();
+   HANDLE m_TLSLock;
+#else
    pthread_key_t m_TLSError;                         // thread local error record (last error)
-   #ifndef WIN32
-      static void TLSDestroy(void* e) {if (NULL != e) delete (CUDTException*)e;}
-   #else
-      std::map<DWORD, CUDTException*> m_mTLSRecord;
-      void checkTLSValue();
-      pthread_mutex_t m_TLSLock;
-   #endif
+   static void TLSDestroy(void* e) {if (NULL != e) delete (CUDTException*)e;}
+#endif
 
 private:
    void connect_complete(const UDTSOCKET u);
@@ -231,21 +247,36 @@ private:
 
 private:
    std::map<int, CMultiplexer> m_mMultiplexer;		// UDP multiplexer
+#ifdef WIN32
+   HANDLE m_MultiplexerLock;
+#else
    pthread_mutex_t m_MultiplexerLock;
+#endif
 
 private:
    CCache<CInfoBlock>* m_pCache;			// UDT network information cache
 
 private:
    volatile bool m_bClosing;
+   #ifdef WIN32
+   HANDLE m_GCStopLock;
+   HANDLE m_GCStopCond;
+
+   HANDLE m_InitLock;
+   #else
    pthread_mutex_t m_GCStopLock;
    pthread_cond_t m_GCStopCond;
 
    pthread_mutex_t m_InitLock;
+   #endif
    int m_iInstanceCount;				// number of startup() called by application
    bool m_bGCStatus;					// if the GC thread is working (true)
 
+   #ifdef WIN32
+   HANDLE m_GCThread;
+   #else
    pthread_t m_GCThread;
+   #endif
    #ifndef WIN32
       static void* garbageCollect(void*);
    #else
