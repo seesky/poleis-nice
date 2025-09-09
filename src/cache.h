@@ -246,7 +246,11 @@ private:
    int m_iHashSize;
    int m_iCurrSize;
 
+#ifdef WIN32
+   HANDLE m_Lock;
+#else
    pthread_mutex_t m_Lock;
+#endif
 
 private:
    CCache(const CCache&);

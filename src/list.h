@@ -99,7 +99,11 @@ private:
    int m_iSize;                         // size of the static array
    int m_iLastInsertPos;                // position of last insert node
 
+#ifdef WIN32
+   HANDLE m_ListLock;          // used to synchronize list operation
+#else
    pthread_mutex_t m_ListLock;          // used to synchronize list operation
+#endif
 
 private:
    CSndLossList(const CSndLossList&);
