@@ -251,43 +251,46 @@ private:
    std::string m_strDebug;	// debug information, set to the original place that causes the error
 
 public: // Error Code
-   static const int SUCCESS;
-   static const int ECONNSETUP;
-   static const int ENOSERVER;
-   static const int ECONNREJ;
-   static const int ESOCKFAIL;
-   static const int ESECFAIL;
-   static const int ECONNFAIL;
-   static const int ECONNLOST;
-   static const int ENOCONN;
-   static const int ERESOURCE;
-   static const int ETHREAD;
-   static const int ENOBUF;
-   static const int EFILE;
-   static const int EINVRDOFF;
-   static const int ERDPERM;
-   static const int EINVWROFF;
-   static const int EWRPERM;
-   static const int EINVOP;
-   static const int EBOUNDSOCK;
-   static const int ECONNSOCK;
-   static const int EINVPARAM;
-   static const int EINVSOCK;
-   static const int EUNBOUNDSOCK;
-   static const int ENOLISTEN;
-   static const int ERDVNOSERV;
-   static const int ERDVUNBOUND;
-   static const int ESTREAMILL;
-   static const int EDGRAMILL;
-   static const int EDUPLISTEN;
-   static const int ELARGEMSG;
-   static const int EINVPOLLID;
-   static const int EASYNCFAIL;
-   static const int EASYNCSND;
-   static const int EASYNCRCV;
-   static const int ETIMEOUT;
-   static const int EPEERERR;
-   static const int EUNKNOWN;
+   enum ErrorCode
+   {
+      SUCCESS = 0,
+      ECONNSETUP = 1000,
+      ENOSERVER = 1001,
+      ECONNREJ = 1002,
+      ESOCKFAIL = 1003,
+      ESECFAIL = 1004,
+      ECONNFAIL = 2000,
+      ECONNLOST = 2001,
+      ENOCONN = 2002,
+      ERESOURCE = 3000,
+      ETHREAD = 3001,
+      ENOBUF = 3002,
+      EFILE = 4000,
+      EINVRDOFF = 4001,
+      ERDPERM = 4002,
+      EINVWROFF = 4003,
+      EWRPERM = 4004,
+      EINVOP = 5000,
+      EBOUNDSOCK = 5001,
+      ECONNSOCK = 5002,
+      EINVPARAM = 5003,
+      EINVSOCK = 5004,
+      EUNBOUNDSOCK = 5005,
+      ENOLISTEN = 5006,
+      ERDVNOSERV = 5007,
+      ERDVUNBOUND = 5008,
+      ESTREAMILL = 5009,
+      EDGRAMILL = 5010,
+      EDUPLISTEN = 5011,
+      ELARGEMSG = 5012,
+      EINVPOLLID = 5013,
+      EASYNCFAIL = 6000,
+      EASYNCSND = 6001,
+      EASYNCRCV = 6002,
+      ETIMEOUT = 6003,
+      EPEERERR = 7000,
+      EUNKNOWN = -1
+   };
 };
 
 ////////////////////////////////////////////////////////////////////////////////
