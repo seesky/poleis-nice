@@ -32,6 +32,7 @@ foreach(tgt udt udt_static)
       $<INSTALL_INTERFACE:include>
   )
   target_compile_options(${tgt} PRIVATE -fPIC -Wall -Wextra -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden)
+  target_compile_definitions(${tgt} PRIVATE UDT_EXPORTS)
 endforeach()
 
 if(NICE_FOUND)
