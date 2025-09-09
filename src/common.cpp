@@ -396,7 +396,7 @@ void CGuard::releaseCond(pthread_cond_t& cond)
 }
 
 //
-CUDTException::CUDTException(int major, int minor, int err):
+UDT_API CUDTException::CUDTException(int major, int minor, int err):
 m_iMajor(major),
 m_iMinor(minor)
 {
@@ -410,7 +410,7 @@ m_iMinor(minor)
       m_iErrno = err;
 }
 
-CUDTException::CUDTException(const CUDTException& e):
+UDT_API CUDTException::CUDTException(const CUDTException& e):
 m_iMajor(e.m_iMajor),
 m_iMinor(e.m_iMinor),
 m_iErrno(e.m_iErrno),
@@ -418,11 +418,11 @@ m_strMsg()
 {
 }
 
-CUDTException::~CUDTException()
+UDT_API CUDTException::~CUDTException()
 {
 }
 
-const char* CUDTException::getErrorMessage()
+UDT_API const char* CUDTException::getErrorMessage()
 {
    // translate "Major:Minor" code into text message.
 
@@ -637,12 +637,12 @@ const char* CUDTException::getErrorMessage()
    return m_strMsg.c_str();
 }
 
-int CUDTException::getErrorCode() const
+UDT_API int CUDTException::getErrorCode() const
 {
    return m_iMajor * 1000 + m_iMinor;
 }
 
-void CUDTException::clear()
+UDT_API void CUDTException::clear()
 {
    m_iMajor = 0;
    m_iMinor = 0;
