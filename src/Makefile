@@ -8,7 +8,7 @@ ifndef arch
    arch = IA32
 endif
 
-CXXFLAGS = -fPIC -Wall -Wextra -D$(os) -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden
+CXXFLAGS = -fPIC -Wall -Wextra -D$(os) -DUDT_EXPORTS -finline-functions -O3 -fno-strict-aliasing -fvisibility=hidden
 
 PKG_CONFIG ?= pkg-config
 NICE_CFLAGS := $(shell $(PKG_CONFIG) --cflags nice 2>/dev/null)
