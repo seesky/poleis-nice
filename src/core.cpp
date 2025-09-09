@@ -65,8 +65,8 @@ CUDTUnited CUDT::s_UDTUnited;
 const UDTSOCKET CUDT::INVALID_SOCK = -1;
 const int CUDT::ERROR = -1;
 
-const UDTSOCKET UDT::INVALID_SOCK = CUDT::INVALID_SOCK;
-const int UDT::ERROR = CUDT::ERROR;
+UDT_API const UDTSOCKET UDT::INVALID_SOCK = CUDT::INVALID_SOCK;
+UDT_API const int UDT::ERROR = CUDT::ERROR;
 
 const int32_t CSeqNo::m_iSeqNoTH = 0x3FFFFFFF;
 const int32_t CSeqNo::m_iMaxSeqNo = 0x7FFFFFFF;
