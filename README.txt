@@ -48,7 +48,10 @@ When using the libnice-based transport, applications must exchange ICE
 parameters out-of-band before a connection can be established. Call
 `UDT::getICEInfo()` to obtain the local username fragment, password, and
 candidate list and signal these to the remote peer. Before initiating
-connectivity checks, supply the remote values with `UDT::setICEInfo()`.
+connectivity checks, supply the remote values with `UDT::setICEInfo()`. The
+sample `appniceclient` and `appniceserver` programs output these fields on a
+single line in the format `ufrag pwd cand1 cand2 ...`; provide the remote
+peer's line when prompted.
 
 To use UDT in your application:
 Read index.htm in ./doc. The documentation is in HTML format and requires your
