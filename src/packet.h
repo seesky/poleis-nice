@@ -193,6 +193,25 @@ public:
 
    CPacket* clone() const;
 
+      // Functionality:
+      //    Provide access to the packet header buffer.
+      // Parameters:
+      //    None.
+      // Returned value:
+      //    Pointer to the beginning of the header.
+
+   uint32_t* header();
+   const uint32_t* header() const;
+
+      // Functionality:
+      //    Copy data into the packet header.
+      // Parameters:
+      //    0) [in] h: pointer to data to copy from.
+      // Returned value:
+      //    None.
+
+   void setHeader(const uint32_t* h);
+
 protected:
    uint32_t m_nHeader[4];               // The 128-bit header field
    iovec m_PacketVector[2];             // The 2-demension vector of UDT packet [header, data]

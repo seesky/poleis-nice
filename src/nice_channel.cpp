@@ -217,7 +217,7 @@ int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
       for (int i = 0, n = packet.getLength() / 4; i < n; ++ i)
          *((uint32_t *)packet.m_pcData + i) = htonl(*((uint32_t *)packet.m_pcData + i));
 
-   uint32_t* p = packet.m_nHeader;
+   uint32_t* p = packet.header();
    for (int j = 0; j < 4; ++ j)
    {
       *p = htonl(*p);
@@ -226,13 +226,13 @@ int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
 
    int size = CPacket::m_iPktHdrSize + packet.getLength();
    guint8* buf = (guint8*)g_malloc(size);
-   memcpy(buf, packet.m_nHeader, CPacket::m_iPktHdrSize);
+   memcpy(buf, packet.header(), CPacket::m_iPktHdrSize);
    memcpy(buf + CPacket::m_iPktHdrSize, packet.m_pcData, packet.getLength());
 
    int res = nice_agent_send(m_pAgent, m_iStreamID, m_iComponentID, size, (char*)buf);
    g_free(buf);
 
-   p = packet.m_nHeader;
+   p = packet.header();
    for (int k = 0; k < 4; ++ k)
    {
       *p = ntohl(*p);
@@ -298,13 +298,13 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
       return -1;
    }
 
-   memcpy(packet.m_nHeader, arr->data, CPacket::m_iPktHdrSize);
+   packet.setHeader(reinterpret_cast<const uint32_t*>(arr->data));
    memcpy(packet.m_pcData, arr->data + CPacket::m_iPktHdrSize, size - CPacket::m_iPktHdrSize);
    g_byte_array_unref(arr);
 
    packet.setLength(size - CPacket::m_iPktHdrSize);
 
-   uint32_t* p = packet.m_nHeader;
+   uint32_t* p = packet.header();
    for (int i = 0; i < 4; ++ i)
    {
       *p = ntohl(*p);
