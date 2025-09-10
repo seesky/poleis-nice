@@ -11,10 +11,31 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <sstream>
 #include <udt.h>
 #include "test_util.h"
 
 using namespace std;
+
+string formatICEInfo(const string &ufrag, const string &pwd, const vector<string> &candidates)
+{
+   string line = ufrag + " " + pwd;
+   for (vector<string>::const_iterator it = candidates.begin(); it != candidates.end(); ++it)
+      line += " " + *it;
+   return line;
+}
+
+bool parseICEInfo(const string &line, string &ufrag, string &pwd, vector<string> &candidates)
+{
+   istringstream iss(line);
+   if (!(iss >> ufrag >> pwd))
+      return false;
+   candidates.clear();
+   string cand;
+   while (iss >> cand)
+      candidates.push_back(cand);
+   return true;
+}
 
 int main(int argc, char* argv[])
 {
@@ -46,19 +67,18 @@ int main(int argc, char* argv[])
       cout << "getICEInfo: " << UDT::getlasterror().getErrorMessage() << endl;
       return 0;
    }
-   cout << "Local ICE username fragment: " << ufrag << endl;
-   cout << "Local ICE password: " << pwd << endl;
-   cout << "Local ICE candidates:" << endl;
-   for (vector<string>::iterator it = candidates.begin(); it != candidates.end(); ++it)
-      cout << *it << endl;
+   cout << formatICEInfo(ufrag, pwd, candidates) << endl;
 
-   cout << "Paste remote ICE info (username fragment, password, candidates) and end with an empty line:" << endl;
-   string rem_ufrag, rem_pwd, line;
+   cout << "Paste remote ICE info (ufrag pwd cand1 cand2 ...):" << endl;
+   string line;
+   getline(cin, line);
+   string rem_ufrag, rem_pwd;
    vector<string> rem_cand;
-   getline(cin, rem_ufrag);
-   getline(cin, rem_pwd);
-   while (getline(cin, line) && !line.empty())
-      rem_cand.push_back(line);
+   if (!parseICEInfo(line, rem_ufrag, rem_pwd, rem_cand))
+   {
+      cout << "Invalid remote ICE info format" << endl;
+      return 0;
+   }
    if (UDT::ERROR == UDT::setICEInfo(serv, rem_ufrag, rem_pwd, rem_cand))
    {
       cout << "setICEInfo: " << UDT::getlasterror().getErrorMessage() << endl;
