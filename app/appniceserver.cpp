@@ -53,19 +53,12 @@ int main(int argc, char* argv[])
       cout << *it << endl;
 
    cout << "Paste remote ICE info (username fragment, password, candidates) and end with an empty line:" << endl;
-   string rem_ufrag, rem_pwd;
+   string rem_ufrag, rem_pwd, line;
+   vector<string> rem_cand;
    getline(cin, rem_ufrag);
    getline(cin, rem_pwd);
-   vector<string> rem_cand;
-   string cand;
-   while (true)
-   {
-      if (!getline(cin, cand))
-         break;
-      if (cand.empty())
-         break;
-      rem_cand.push_back(cand);
-   }
+   while (getline(cin, line) && !line.empty())
+      rem_cand.push_back(line);
    if (UDT::ERROR == UDT::setICEInfo(serv, rem_ufrag, rem_pwd, rem_cand))
    {
       cout << "setICEInfo: " << UDT::getlasterror().getErrorMessage() << endl;
