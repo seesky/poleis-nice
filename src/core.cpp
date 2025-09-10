@@ -580,10 +580,19 @@ void CUDT::connect(const sockaddr* serv_addr)
    if (m_bConnecting || m_bConnected)
       throw CUDTException(5, 2, 0);
 
-   // record peer/server address
+   // determine peer/server address
+   const sockaddr* peer_addr = serv_addr;
+   #ifdef USE_LIBNICE
+      sockaddr_storage remote_addr;
+      if (!m_pSndQueue->m_pChannel->waitUntilConnected())
+         throw CUDTException(1, 1, 0);
+      m_pSndQueue->m_pChannel->getPeerAddr((sockaddr*)&remote_addr);
+      peer_addr = (sockaddr*)&remote_addr;
+   #endif
+
    delete m_pPeerAddr;
    m_pPeerAddr = (AF_INET == m_iIPversion) ? (sockaddr*)new sockaddr_in : (sockaddr*)new sockaddr_in6;
-   memcpy(m_pPeerAddr, serv_addr, (AF_INET == m_iIPversion) ? sizeof(sockaddr_in) : sizeof(sockaddr_in6));
+   memcpy(m_pPeerAddr, peer_addr, (AF_INET == m_iIPversion) ? sizeof(sockaddr_in) : sizeof(sockaddr_in6));
 
    // register this socket in the rendezvous queue
    // RendezevousQueue is used to temporarily store incoming handshake, non-rendezvous connections also require this function
@@ -591,7 +600,7 @@ void CUDT::connect(const sockaddr* serv_addr)
    if (m_bRendezvous)
       ttl *= 10;
    ttl += CTimer::getTime();
-   m_pRcvQueue->registerConnector(m_SocketID, this, m_iIPversion, serv_addr, ttl);
+   m_pRcvQueue->registerConnector(m_SocketID, this, m_iIPversion, peer_addr, ttl);
 
    // This is my current configurations
    m_ConnReq.m_iVersion = m_iVersion;
@@ -600,7 +609,7 @@ void CUDT::connect(const sockaddr* serv_addr)
    m_ConnReq.m_iFlightFlagSize = (m_iRcvBufSize < m_iFlightFlagSize)? m_iRcvBufSize : m_iFlightFlagSize;
    m_ConnReq.m_iReqType = (!m_bRendezvous) ? 1 : 0;
    m_ConnReq.m_iID = m_SocketID;
-   CIPAddress::ntop(serv_addr, m_ConnReq.m_piPeerIP, m_iIPversion);
+   CIPAddress::ntop(peer_addr, m_ConnReq.m_piPeerIP, m_iIPversion);
 
    // Random Initial Sequence Number
    srand((unsigned int)CTimer::getTime());
@@ -624,13 +633,10 @@ void CUDT::connect(const sockaddr* serv_addr)
    m_ConnReq.serialize(reqdata, hs_size);
    request.setLength(hs_size);
    #ifdef USE_LIBNICE
-      if (!m_pSndQueue->m_pChannel->waitUntilConnected())
-      {
-         delete [] reqdata;
-         throw CUDTException(1, 1, 0);
-      }
+      m_pSndQueue->sendto(NULL, request);
+   #else
+      m_pSndQueue->sendto(peer_addr, request);
    #endif
-   m_pSndQueue->sendto(serv_addr, request);
    m_llLastReqTime = CTimer::getTime();
 
    m_bConnecting = true;
