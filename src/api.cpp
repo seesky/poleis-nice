@@ -235,10 +235,10 @@ int CUDTUnited::cleanup()
    // threads that depend on them are destroyed.
    for (map<int, CMultiplexer>::iterator i = m_mMultiplexer.begin(); i != m_mMultiplexer.end(); ++ i)
    {
-      if (i->second.m_pChannel)
-         i->second.m_pChannel->close();
       delete i->second.m_pSndQueue;
       delete i->second.m_pRcvQueue;
+      if (i->second.m_pChannel)
+         i->second.m_pChannel->close();
       delete i->second.m_pTimer;
       delete i->second.m_pChannel;
    }
@@ -1347,20 +1347,17 @@ void CUDTUnited::removeSocket(const UDTSOCKET u)
    // delete this one
    i->second->m_pUDT->close();
 
-   // If this is the last socket using the multiplexer, close the channel
-   // before any worker threads in the queues are terminated by the
-   // destructors below.
-   if (m->second.m_iRefCount == 1)
-      m->second.m_pChannel->close();
+   const bool last = (m->second.m_iRefCount == 1);
 
    delete i->second;
    m_ClosedSockets.erase(i);
 
    m->second.m_iRefCount --;
-   if (0 == m->second.m_iRefCount)
+   if (last)
    {
       delete m->second.m_pSndQueue;
       delete m->second.m_pRcvQueue;
+      m->second.m_pChannel->close();
       delete m->second.m_pTimer;
       delete m->second.m_pChannel;
       m_mMultiplexer.erase(m);

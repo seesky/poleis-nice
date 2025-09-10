@@ -131,6 +131,9 @@ void CNiceChannel::close()
    if (m_pLoop)
       g_main_loop_quit(m_pLoop);
 
+   if (m_pRecvQueue)
+      g_async_queue_push(m_pRecvQueue, NULL);
+
    if (m_pThread)
    {
       g_thread_join(m_pThread);
