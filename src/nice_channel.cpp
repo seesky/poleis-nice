@@ -183,6 +183,25 @@ void CNiceChannel::getSockAddr(sockaddr* addr) const
 {
    if (addr)
    {
+      if (!m_SockAddr.ss_family)
+      {
+         NiceCandidate* lc = NULL;
+         NiceCandidate* rc = NULL;
+         if (nice_agent_get_selected_pair(m_pAgent, m_iStreamID, m_iComponentID, &lc, &rc))
+         {
+            if (lc)
+            {
+               nice_address_copy_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
+               nice_candidate_free(lc);
+            }
+            if (rc)
+            {
+               nice_address_copy_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
+               nice_candidate_free(rc);
+            }
+         }
+      }
+
       if (m_SockAddr.ss_family)
       {
          if (AF_INET == m_SockAddr.ss_family)
@@ -199,6 +218,25 @@ void CNiceChannel::getPeerAddr(sockaddr* addr) const
 {
    if (addr)
    {
+      if (!m_PeerAddr.ss_family)
+      {
+         NiceCandidate* lc = NULL;
+         NiceCandidate* rc = NULL;
+         if (nice_agent_get_selected_pair(m_pAgent, m_iStreamID, m_iComponentID, &lc, &rc))
+         {
+            if (lc)
+            {
+               nice_address_copy_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
+               nice_candidate_free(lc);
+            }
+            if (rc)
+            {
+               nice_address_copy_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
+               nice_candidate_free(rc);
+            }
+         }
+      }
+
       if (m_PeerAddr.ss_family)
       {
          if (AF_INET == m_PeerAddr.ss_family)
