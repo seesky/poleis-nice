@@ -749,6 +749,7 @@ int CUDTUnited::connect(const UDTSOCKET u, const sockaddr* name, int namelen)
    CGuard cg(s->m_ControlLock);
 
    // check the size of SOCKADDR structure
+#ifndef USE_LIBNICE
    if (AF_INET == s->m_iIPversion)
    {
       if (namelen != sizeof(sockaddr_in))
@@ -759,6 +760,21 @@ int CUDTUnited::connect(const UDTSOCKET u, const sockaddr* name, int namelen)
       if (namelen != sizeof(sockaddr_in6))
          throw CUDTException(5, 3, 0);
    }
+#else
+   if (name)
+   {
+      if (AF_INET == s->m_iIPversion)
+      {
+         if (namelen != sizeof(sockaddr_in))
+            throw CUDTException(5, 3, 0);
+      }
+      else
+      {
+         if (namelen != sizeof(sockaddr_in6))
+            throw CUDTException(5, 3, 0);
+      }
+   }
+#endif
 
    // a socket can "connect" only if it is in INIT or OPENED status
    if (INIT == s->m_Status)
@@ -781,7 +797,10 @@ int CUDTUnited::connect(const UDTSOCKET u, const sockaddr* name, int namelen)
    s->m_Status = CONNECTING;
    try
    {
-      s->m_pUDT->connect(name);
+      if (name)
+         s->m_pUDT->connect(name);
+      else
+         s->m_pUDT->connect(NULL);
    }
    catch (CUDTException e)
    {
@@ -792,15 +811,28 @@ int CUDTUnited::connect(const UDTSOCKET u, const sockaddr* name, int namelen)
    // record peer address
    delete s->m_pPeerAddr;
    if (AF_INET == s->m_iIPversion)
-   {
       s->m_pPeerAddr = (sockaddr*)(new sockaddr_in);
+   else
+      s->m_pPeerAddr = (sockaddr*)(new sockaddr_in6);
+
+#ifndef USE_LIBNICE
+   if (AF_INET == s->m_iIPversion)
       memcpy(s->m_pPeerAddr, name, sizeof(sockaddr_in));
+   else
+      memcpy(s->m_pPeerAddr, name, sizeof(sockaddr_in6));
+#else
+   if (name)
+   {
+      if (AF_INET == s->m_iIPversion)
+         memcpy(s->m_pPeerAddr, name, sizeof(sockaddr_in));
+      else
+         memcpy(s->m_pPeerAddr, name, sizeof(sockaddr_in6));
    }
    else
    {
-      s->m_pPeerAddr = (sockaddr*)(new sockaddr_in6);
-      memcpy(s->m_pPeerAddr, name, sizeof(sockaddr_in6));
+      s->m_pUDT->m_pSndQueue->m_pChannel->getPeerAddr(s->m_pPeerAddr);
    }
+#endif
 
    return 0;
 }
