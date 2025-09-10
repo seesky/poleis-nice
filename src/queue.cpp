@@ -789,8 +789,18 @@ void CRendezvousQueue::insert(const UDTSOCKET& id, CUDT* u, int ipv, const socka
    r.m_iID = id;
    r.m_pUDT = u;
    r.m_iIPversion = ipv;
+#ifdef USE_LIBNICE
+   if (NULL != addr)
+   {
+      r.m_pPeerAddr = (AF_INET == ipv) ? (sockaddr*)new sockaddr_in : (sockaddr*)new sockaddr_in6;
+      memcpy(r.m_pPeerAddr, addr, (AF_INET == ipv) ? sizeof(sockaddr_in) : sizeof(sockaddr_in6));
+   }
+   else
+      r.m_pPeerAddr = NULL;
+#else
    r.m_pPeerAddr = (AF_INET == ipv) ? (sockaddr*)new sockaddr_in : (sockaddr*)new sockaddr_in6;
    memcpy(r.m_pPeerAddr, addr, (AF_INET == ipv) ? sizeof(sockaddr_in) : sizeof(sockaddr_in6));
+#endif
    r.m_ullTTL = ttl;
 
    m_lRendezvousID.push_back(r);
@@ -823,11 +833,22 @@ CUDT* CRendezvousQueue::retrieve(const sockaddr* addr, UDTSOCKET& id)
    // TODO: optimize search
    for (list<CRL>::iterator i = m_lRendezvousID.begin(); i != m_lRendezvousID.end(); ++ i)
    {
+#ifdef USE_LIBNICE
+      if (((NULL != addr) && (NULL != i->m_pPeerAddr) &&
+           CIPAddress::ipcmp(addr, i->m_pPeerAddr, i->m_iIPversion) &&
+           ((0 == id) || (id == i->m_iID))) ||
+          ((NULL == addr || NULL == i->m_pPeerAddr) && (id == i->m_iID)))
+      {
+         id = i->m_iID;
+         return i->m_pUDT;
+      }
+#else
       if (CIPAddress::ipcmp(addr, i->m_pPeerAddr, i->m_iIPversion) && ((0 == id) || (id == i->m_iID)))
       {
          id = i->m_iID;
          return i->m_pUDT;
       }
+#endif
    }
 
    return NULL;
