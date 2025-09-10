@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <cstring>
-#include <netdb.h>
+#include <netinet/in.h>
 #else
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -18,40 +18,15 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-   if ((1 != argc) && ((2 != argc) || (0 == atoi(argv[1]))))
+   if (1 != argc)
    {
-      cout << "usage: appniceserver [server_port]" << endl;
+      cout << "usage: appniceserver" << endl;
       return 0;
    }
 
    UDTUpDown _udt_;
 
-   addrinfo hints;
-   addrinfo* res;
-   memset(&hints, 0, sizeof(struct addrinfo));
-   hints.ai_flags = AI_PASSIVE;
-   hints.ai_family = AF_INET;
-   hints.ai_socktype = SOCK_STREAM;
-
-   string service("9000");
-   if (2 == argc)
-      service = argv[1];
-
-   if (0 != getaddrinfo(NULL, service.c_str(), &hints, &res))
-   {
-      cout << "illegal port number or port is busy.\n" << endl;
-      return 0;
-   }
-
-   UDTSOCKET serv = UDT::socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-
-   if (UDT::ERROR == UDT::bind(serv, res->ai_addr, res->ai_addrlen))
-   {
-      cout << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
-      return 0;
-   }
-
-   freeaddrinfo(res);
+   UDTSOCKET serv = UDT::socket(AF_INET, SOCK_STREAM, 0);
 
 #ifdef USE_LIBNICE
    string ufrag, pwd;
@@ -90,8 +65,15 @@ int main(int argc, char* argv[])
    }
 #endif
 
-   cout << "server is ready at port: " << service << endl;
-
+   sockaddr_in any;
+   any.sin_family = AF_INET;
+   any.sin_port = 0;
+   any.sin_addr.s_addr = INADDR_ANY;
+   if (UDT::ERROR == UDT::bind(serv, (sockaddr*)&any, sizeof(any)))
+   {
+      cout << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
+      return 0;
+   }
    if (UDT::ERROR == UDT::listen(serv, 1))
    {
       cout << "listen: " << UDT::getlasterror().getErrorMessage() << endl;
