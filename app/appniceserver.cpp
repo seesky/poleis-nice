@@ -28,6 +28,16 @@ int main(int argc, char* argv[])
 
    UDTSOCKET serv = UDT::socket(AF_INET, SOCK_STREAM, 0);
 
+   sockaddr_in any;
+   any.sin_family = AF_INET;
+   any.sin_port = 0;
+   any.sin_addr.s_addr = INADDR_ANY;
+   if (UDT::ERROR == UDT::bind(serv, (sockaddr*)&any, sizeof(any)))
+   {
+      cout << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
+      return 0;
+   }
+
 #ifdef USE_LIBNICE
    string ufrag, pwd;
    vector<string> candidates;
@@ -64,16 +74,6 @@ int main(int argc, char* argv[])
       return 0;
    }
 #endif
-
-   sockaddr_in any;
-   any.sin_family = AF_INET;
-   any.sin_port = 0;
-   any.sin_addr.s_addr = INADDR_ANY;
-   if (UDT::ERROR == UDT::bind(serv, (sockaddr*)&any, sizeof(any)))
-   {
-      cout << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
-      return 0;
-   }
    if (UDT::ERROR == UDT::listen(serv, 1))
    {
       cout << "listen: " << UDT::getlasterror().getErrorMessage() << endl;
