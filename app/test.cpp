@@ -693,8 +693,8 @@ DWORD WINAPI Test_4_Cli(LPVOID)
 
    for (vector<HANDLE>::iterator i = cli_threads.begin(); i != cli_threads.end(); ++ i)
    {
-      *i = CreateThread(NULL, 0, NULL, start_and_destroy_clients, 0, NULL);
-   }
+      *i = CreateThread(NULL, 0, start_and_destroy_clients, NULL, 0, NULL);
+      }
 
    for (vector<HANDLE>::iterator i = cli_threads.begin(); i != cli_threads.end(); ++ i)
    {
