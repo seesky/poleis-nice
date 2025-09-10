@@ -61,7 +61,11 @@ class CChannel;
 
 class CPacket
 {
+#ifdef USE_LIBNICE
+friend CChannel;
+#else
 friend class CChannel;
+#endif
 friend class CSndQueue;
 friend class CRcvQueue;
 
