@@ -24,6 +24,12 @@ add_library(udt SHARED ${SOURCES})
 add_library(udt_static STATIC ${SOURCES})
 set_target_properties(udt_static PROPERTIES OUTPUT_NAME udt)
 
+if(WIN32)
+  foreach(tgt udt udt_static)
+    target_link_libraries(${tgt} PRIVATE ws2_32)
+  endforeach()
+endif()
+
 # Common include directories for public headers
 foreach(tgt udt udt_static)
   target_include_directories(${tgt}
