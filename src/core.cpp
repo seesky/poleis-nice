@@ -560,6 +560,10 @@ void CUDT::listen()
    if (m_bListening)
       return;
 
+#ifdef USE_LIBNICE
+   m_pSndQueue->m_pChannel->setControllingMode(false);
+#endif
+
    // if there is already another socket listening on the same port
    if (m_pRcvQueue->setListener(this) < 0)
       throw CUDTException(5, 11, 0);
@@ -583,6 +587,7 @@ void CUDT::connect(const sockaddr* serv_addr)
    // determine peer/server address
    const sockaddr* peer_addr = serv_addr;
    #ifdef USE_LIBNICE
+      m_pSndQueue->m_pChannel->setControllingMode(true);
       sockaddr_storage remote_addr;
       if (!m_pSndQueue->m_pChannel->waitUntilConnected())
          throw CUDTException(1, 1, 0);
