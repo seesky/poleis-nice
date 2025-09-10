@@ -17,6 +17,7 @@ foreach(src ${APP_SOURCES})
   add_executable(${exe} ${src})
   if(WIN32)
     target_link_libraries(${exe} PRIVATE udt_static Threads::Threads m ws2_32)
+    target_compile_definitions(${exe} PRIVATE UDT_EXPORTS)
     if(UDT_COPY_DLL)
       add_custom_command(TARGET ${exe} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
