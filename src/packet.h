@@ -52,7 +52,12 @@ written by
    };
 #endif
 
+#ifdef USE_LIBNICE
+class CNiceChannel;
+typedef CNiceChannel CChannel;
+#else
 class CChannel;
+#endif
 
 class CPacket
 {
