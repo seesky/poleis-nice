@@ -613,7 +613,11 @@ DWORD WINAPI start_and_destroy_clients(LPVOID param)
    if (createUDTSocket(cli_socks[0], 0) < 0)
    {
       cout << "socket: " << UDT::getlasterror().getErrorMessage() << endl;
+      #ifdef WIN32
+      return 0;
+      #else
       return NULL;
+      #endif
    }
 
    sockaddr* addr = NULL;
@@ -631,7 +635,11 @@ DWORD WINAPI start_and_destroy_clients(LPVOID param)
       if (createUDTSocket(cli_socks[i], atoi(sharedport)) < 0)
       {
          cout << "socket: " << UDT::getlasterror().getErrorMessage() << endl;
+         #ifdef WIN32
+         return 0;
+         #else
          return NULL;
+         #endif
       }
    }
 
@@ -640,16 +648,24 @@ DWORD WINAPI start_and_destroy_clients(LPVOID param)
       if (connect(*i, g_Server_Port) < 0)
       {
          cout << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
+         #ifdef WIN32
+         return 0;
+         #else
          return NULL;
+         #endif
       }
    }
 
    for (vector<UDTSOCKET>::iterator i = cli_socks.begin(); i != cli_socks.end(); ++ i)
    {
       UDT::close(*i);
-   }   
+   }
 
+   #ifdef WIN32
+   return 0;
+   #else
    return NULL;
+   #endif
 }
 
 #ifndef WIN32
@@ -686,7 +702,11 @@ DWORD WINAPI Test_4_Cli(LPVOID)
    }
 #endif
 
+   #ifdef WIN32
+   return 0;
+   #else
    return NULL;
+   #endif
 }
 
 
