@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <cstring>
-#include <netdb.h>
+#include <netinet/in.h>
 #else
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -18,28 +18,15 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-   if ((3 != argc) || (0 == atoi(argv[2])))
+   if (1 != argc)
    {
-      cout << "usage: appniceclient server_ip server_port" << endl;
+      cout << "usage: appniceclient" << endl;
       return 0;
    }
 
    UDTUpDown _udt_;
 
-   struct addrinfo hints, *local, *peer;
-   memset(&hints, 0, sizeof(struct addrinfo));
-   hints.ai_flags = AI_PASSIVE;
-   hints.ai_family = AF_INET;
-   hints.ai_socktype = SOCK_STREAM;
-
-   if (0 != getaddrinfo(NULL, "0", &hints, &local))
-   {
-      cout << "incorrect network address.\n" << endl;
-      return 0;
-   }
-
-   UDTSOCKET client = UDT::socket(local->ai_family, local->ai_socktype, local->ai_protocol);
-   freeaddrinfo(local);
+   UDTSOCKET client = UDT::socket(AF_INET, SOCK_STREAM, 0);
 
 #ifdef USE_LIBNICE
    string ufrag, pwd;
@@ -78,18 +65,21 @@ int main(int argc, char* argv[])
    }
 #endif
 
-   if (0 != getaddrinfo(argv[1], argv[2], &hints, &peer))
+   sockaddr_in any;
+   any.sin_family = AF_INET;
+   any.sin_port = 0;
+   any.sin_addr.s_addr = INADDR_ANY;
+   if (UDT::ERROR == UDT::bind(client, (sockaddr*)&any, sizeof(any)))
    {
-      cout << "incorrect server/peer address. " << argv[1] << ":" << argv[2] << endl;
+      cout << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
       return 0;
    }
 
-   if (UDT::ERROR == UDT::connect(client, peer->ai_addr, peer->ai_addrlen))
+   if (UDT::ERROR == UDT::connect(client, NULL, 0))
    {
       cout << "connect: " << UDT::getlasterror().getErrorMessage() << endl;
       return 0;
    }
-   freeaddrinfo(peer);
 
    string msg("hello from libnice client\n");
    if (UDT::ERROR == UDT::send(client, msg.c_str(), msg.size(), 0))
