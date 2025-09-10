@@ -52,20 +52,18 @@ int main(int argc, char* argv[])
    for (vector<string>::iterator it = candidates.begin(); it != candidates.end(); ++it)
       cout << *it << endl;
 
+   cout << "Paste remote ICE info (username fragment, password, candidates) and end with an empty line:" << endl;
    string rem_ufrag, rem_pwd;
-   cout << "Enter remote ICE username fragment: ";
    getline(cin, rem_ufrag);
-   cout << "Enter remote ICE password: ";
    getline(cin, rem_pwd);
-   cout << "Enter number of remote candidates: ";
-   int n = 0;
-   cin >> n;
-   cin.ignore();
    vector<string> rem_cand;
-   for (int i = 0; i < n; ++i)
+   string cand;
+   while (true)
    {
-      string cand;
-      getline(cin, cand);
+      if (!getline(cin, cand))
+         break;
+      if (cand.empty())
+         break;
       rem_cand.push_back(cand);
    }
    if (UDT::ERROR == UDT::setICEInfo(serv, rem_ufrag, rem_pwd, rem_cand))
