@@ -354,6 +354,21 @@ CPacket* CPacket::clone() const
    return pkt;
 }
 
+uint32_t* CPacket::header()
+{
+   return m_nHeader;
+}
+
+const uint32_t* CPacket::header() const
+{
+   return m_nHeader;
+}
+
+void CPacket::setHeader(const uint32_t* h)
+{
+   memcpy(m_nHeader, h, m_iPktHdrSize);
+}
+
 CHandShake::CHandShake():
 m_iVersion(0),
 m_iType(0),
