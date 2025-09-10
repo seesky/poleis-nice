@@ -78,7 +78,7 @@ void CNiceChannel::open(const sockaddr* addr)
       if (NULL == m_pAgent)
          throw CUDTException(3, 2, 0);
 
-      nice_agent_set_controlling_mode(m_pAgent, m_bControlling ? TRUE : FALSE);
+      g_object_set(G_OBJECT(m_pAgent), "controlling-mode", m_bControlling ? TRUE : FALSE, NULL);
 
       m_iStreamID = nice_agent_add_stream(m_pAgent, 1);
       if (0 == m_iStreamID)
@@ -121,10 +121,11 @@ void CNiceChannel::close()
 {
    if (m_pAgent)
    {
-      // Detach any receive callback and close the agent so that libnice
+      // Detach any receive callback and stop the stream so that libnice
       // stops all internal processing before we tear down its context.
       nice_agent_attach_recv(m_pAgent, m_iStreamID, m_iComponentID, NULL, NULL, NULL);
-      nice_agent_close(m_pAgent);
+      if (m_iStreamID > 0)
+         nice_agent_remove_stream(m_pAgent, m_iStreamID);
    }
 
    if (m_pLoop)
@@ -260,12 +261,12 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
       {
          if (lc)
          {
-            nice_address_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
+            nice_address_copy_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
             nice_candidate_free(lc);
          }
          if (rc)
          {
-            nice_address_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
+            nice_address_copy_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
             if (addr)
             {
                if (AF_INET == m_PeerAddr.ss_family)
@@ -365,9 +366,14 @@ int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates
    GSList* list = NULL;
    for (std::vector<std::string>::const_iterator it = candidates.begin(); it != candidates.end(); ++ it)
    {
-      NiceCandidate* c = NULL;
-      if (nice_agent_parse_remote_candidate_sdp(m_pAgent, m_iStreamID, m_iComponentID, it->c_str(), &c))
-         list = g_slist_append(list, c);
+      NiceCandidate* c = nice_agent_parse_remote_candidate_sdp(m_pAgent, m_iStreamID, it->c_str());
+      if (c)
+      {
+         if (c->component_id == m_iComponentID)
+            list = g_slist_append(list, c);
+         else
+            nice_candidate_free(c);
+      }
    }
    int r = nice_agent_set_remote_candidates(m_pAgent, m_iStreamID, m_iComponentID, list);
    g_slist_free_full(list, (GDestroyNotify)nice_candidate_free);
@@ -377,6 +383,8 @@ int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates
 void CNiceChannel::setControllingMode(bool controlling)
 {
    m_bControlling = controlling;
+   if (m_pAgent)
+      g_object_set(G_OBJECT(m_pAgent), "controlling-mode", m_bControlling ? TRUE : FALSE, NULL);
 }
 
 void CNiceChannel::waitForCandidates()
