@@ -2212,6 +2212,12 @@ int CUDT::getICEInfo(UDTSOCKET u, std::string& ufrag, std::string& pwd,
    try
    {
        CUDT* udt = s_UDTUnited.lookup(u);
+       if (NULL == udt->m_pSndQueue)
+       {
+           CUDTSocket* socket = s_UDTUnited.locate(u);
+           udt->open();
+           s_UDTUnited.updateMux(socket);
+       }
        udt->m_pSndQueue->m_pChannel->waitForCandidates();
        int r1 = udt->m_pSndQueue->m_pChannel->getLocalCredentials(ufrag, pwd);
        int r2 = udt->m_pSndQueue->m_pChannel->getLocalCandidates(candidates);
@@ -2235,6 +2241,12 @@ int CUDT::setICEInfo(UDTSOCKET u, const std::string& ufrag, const std::string& p
    try
    {
        CUDT* udt = s_UDTUnited.lookup(u);
+       if (NULL == udt->m_pSndQueue)
+       {
+           CUDTSocket* socket = s_UDTUnited.locate(u);
+           udt->open();
+           s_UDTUnited.updateMux(socket);
+       }
        int r1 = udt->m_pSndQueue->m_pChannel->setRemoteCredentials(ufrag, pwd);
        int r2 = udt->m_pSndQueue->m_pChannel->setRemoteCandidates(candidates);
        return (r1 < 0 || r2 < 0) ? ERROR : 0;
