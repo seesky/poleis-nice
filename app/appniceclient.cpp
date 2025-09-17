@@ -12,28 +12,79 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <cctype>
 #include <udt.h>
 #include "test_util.h"
 
 using namespace std;
 
+namespace
+{
+string encodeField(const string &value)
+{
+   ostringstream oss;
+   oss << value.size() << ':' << value;
+   return oss.str();
+}
+
+bool decodeField(const string &line, size_t &pos, string &value)
+{
+   while (pos < line.size() && isspace(static_cast<unsigned char>(line[pos])))
+      ++pos;
+   if (pos >= line.size())
+      return false;
+
+   size_t colon = line.find(':', pos);
+   if (colon == string::npos || colon == pos)
+      return false;
+
+   size_t len = 0;
+   try
+   {
+      len = static_cast<size_t>(stoul(line.substr(pos, colon - pos)));
+   }
+   catch (...)
+   {
+      return false;
+   }
+
+   pos = colon + 1;
+   if (pos + len > line.size())
+      return false;
+
+   value.assign(line, pos, len);
+   pos += len;
+   return true;
+}
+}
+
 string formatICEInfo(const string &ufrag, const string &pwd, const vector<string> &candidates)
 {
-   string line = ufrag + " " + pwd;
+   string line = encodeField(ufrag) + encodeField(pwd);
    for (vector<string>::const_iterator it = candidates.begin(); it != candidates.end(); ++it)
-      line += " " + *it;
+      line += encodeField(*it);
    return line;
 }
 
 bool parseICEInfo(const string &line, string &ufrag, string &pwd, vector<string> &candidates)
 {
-   istringstream iss(line);
-   if (!(iss >> ufrag >> pwd))
+   size_t pos = 0;
+   if (!decodeField(line, pos, ufrag) || !decodeField(line, pos, pwd))
       return false;
+
    candidates.clear();
    string cand;
-   while (iss >> cand)
+   while (decodeField(line, pos, cand))
       candidates.push_back(cand);
+
+   // Allow trailing whitespace after the last field but not unexpected characters.
+   while (pos < line.size())
+   {
+      if (!isspace(static_cast<unsigned char>(line[pos])))
+         return false;
+      ++pos;
+   }
+
    return true;
 }
 
@@ -69,7 +120,7 @@ int main(int argc, char* argv[])
    }
    cout << formatICEInfo(ufrag, pwd, candidates) << endl;
 
-   cout << "Paste remote ICE info (ufrag pwd cand1 cand2 ...):" << endl;
+   cout << "Paste remote ICE info (length-prefixed fields as printed above):" << endl;
    string line;
    getline(cin, line);
    string rem_ufrag, rem_pwd;
