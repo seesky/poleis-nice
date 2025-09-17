@@ -50,8 +50,9 @@ parameters out-of-band before a connection can be established. Call
 candidate list and signal these to the remote peer. Before initiating
 connectivity checks, supply the remote values with `UDT::setICEInfo()`. The
 sample `appniceclient` and `appniceserver` programs output these fields on a
-single line in the format `ufrag pwd cand1 cand2 ...`; provide the remote
-peer's line when prompted.
+single line by concatenating length-prefixed strings (for example,
+`4:abcd10:passphrase...`). Copy the full line and provide the remote peer's line
+when prompted.
 
 To use UDT in your application:
 Read index.htm in ./doc. The documentation is in HTML format and requires your
