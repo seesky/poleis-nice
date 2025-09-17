@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #else
 #include <winsock2.h>
+#include <windows.h>
 #include <ws2tcpip.h>
 #include <wspiapi.h>
 #endif
@@ -17,6 +18,12 @@
 #include "test_util.h"
 
 using namespace std;
+
+#ifndef WIN32
+void* monitor(void*);
+#else
+DWORD WINAPI monitor(LPVOID);
+#endif
 
 namespace
 {
@@ -143,10 +150,88 @@ int main(int argc, char* argv[])
       return 0;
    }
 
-   string msg("hello from libnice client\n");
-   if (UDT::ERROR == UDT::send(client, msg.c_str(), msg.size(), 0))
-      cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
+   int size = 100000;
+   char* data = new char[size];
+
+#ifndef WIN32
+   pthread_t monitor_thread;
+   pthread_create(&monitor_thread, NULL, monitor, &client);
+#else
+   HANDLE monitor_thread = CreateThread(NULL, 0, monitor, &client, 0, NULL);
+#endif
+
+   for (int i = 0; i < 1000000; ++i)
+   {
+      int ssize = 0;
+      int ss;
+      while (ssize < size)
+      {
+         if (UDT::ERROR == (ss = UDT::send(client, data + ssize, size - ssize, 0)))
+         {
+            cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
+            break;
+         }
+
+         ssize += ss;
+      }
+
+      if (ssize < size)
+         break;
+   }
 
    UDT::close(client);
+
+#ifndef WIN32
+   pthread_join(monitor_thread, NULL);
+#else
+   if (NULL != monitor_thread)
+   {
+      WaitForSingleObject(monitor_thread, INFINITE);
+      CloseHandle(monitor_thread);
+   }
+#endif
+
+   delete [] data;
    return 0;
+}
+
+#ifndef WIN32
+void* monitor(void* s)
+#else
+DWORD WINAPI monitor(LPVOID s)
+#endif
+{
+   UDTSOCKET u = *(UDTSOCKET*)s;
+
+   UDT::TRACEINFO perf;
+
+   cout << "SendRate(Mb/s)\tRTT(ms)\tCWnd\tPktSndPeriod(us)\tRecvACK\tRecvNAK" << endl;
+
+   while (true)
+   {
+#ifndef WIN32
+      sleep(1);
+#else
+      Sleep(1000);
+#endif
+
+      if (UDT::ERROR == UDT::perfmon(u, &perf))
+      {
+         cout << "perfmon: " << UDT::getlasterror().getErrorMessage() << endl;
+         break;
+      }
+
+      cout << perf.mbpsSendRate << "\t\t"
+           << perf.msRTT << "\t"
+           << perf.pktCongestionWindow << "\t"
+           << perf.usPktSndPeriod << "\t\t\t"
+           << perf.pktRecvACK << "\t"
+           << perf.pktRecvNAK << endl;
+   }
+
+#ifndef WIN32
+   return NULL;
+#else
+   return 0;
+#endif
 }
