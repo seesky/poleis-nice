@@ -13,6 +13,7 @@
 #include <vector>
 #include <sstream>
 #include <cctype>
+#include <cstdint>
 #include <udt.h>
 #include "test_util.h"
 
@@ -152,13 +153,41 @@ int main(int argc, char* argv[])
 
    cout << "connection established" << endl;
 
-   char data[100];
-   int r;
-   while ((r = UDT::recv(recver, data, sizeof(data), 0)) > 0)
+   const int size = 100000;
+   char* data = new char[size];
+
+   int64_t total = 0;
+   while (true)
    {
-      cout.write(data, r);
-      cout.flush();
+      int rsize = 0;
+      int rs = 0;
+      while (rsize < size)
+      {
+         int rcv_size;
+         int var_size = sizeof(int);
+         UDT::getsockopt(recver, 0, UDT_RCVDATA, &rcv_size, &var_size);
+
+         if (UDT::ERROR == (rs = UDT::recv(recver, data + rsize, size - rsize, 0)))
+         {
+            cout << "recv: " << UDT::getlasterror().getErrorMessage() << endl;
+            break;
+         }
+
+         if (0 == rs)
+            break;
+
+         rsize += rs;
+      }
+
+      total += rsize;
+
+      if (rs <= 0 || rsize < size)
+         break;
    }
+
+   cout << "total bytes received: " << total << endl;
+
+   delete [] data;
 
    UDT::close(recver);
    UDT::close(serv);
