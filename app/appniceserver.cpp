@@ -157,31 +157,36 @@ int main(int argc, char* argv[])
    char* data = new char[size];
 
    int64_t total = 0;
-   while (true)
+   bool done = false;
+   while (!done)
    {
       int rsize = 0;
-      int rs = 0;
       while (rsize < size)
       {
          int rcv_size;
          int var_size = sizeof(int);
          UDT::getsockopt(recver, 0, UDT_RCVDATA, &rcv_size, &var_size);
 
-         if (UDT::ERROR == (rs = UDT::recv(recver, data + rsize, size - rsize, 0)))
+         int rs = UDT::recv(recver, data + rsize, size - rsize, 0);
+         if (UDT::ERROR == rs)
          {
             cout << "recv: " << UDT::getlasterror().getErrorMessage() << endl;
+            done = true;
             break;
          }
 
          if (0 == rs)
+         {
+            done = true;
             break;
+         }
 
          rsize += rs;
       }
 
       total += rsize;
 
-      if (rs <= 0 || rsize < size)
+      if (done || rsize < size)
          break;
    }
 
