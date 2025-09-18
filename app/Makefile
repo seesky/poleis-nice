@@ -49,7 +49,7 @@ endif
 
 DIR = $(shell pwd)
 
-APP = appserver appclient sendfile recvfile test appniceserver appniceclient
+APP = appserver appclient sendfile recvfile test appniceserver appniceclient nice_channel_retry_test
 
 all: $(APP)
 
@@ -69,6 +69,8 @@ test: test.o
 appniceserver: appniceserver.o
 	$(CXX) $^ -o $@ $(LIBS)
 appniceclient: appniceclient.o
+	$(CXX) $^ -o $@ $(LIBS)
+nice_channel_retry_test: nice_channel_retry_test.o
 	$(CXX) $^ -o $@ $(LIBS)
 
 clean:
