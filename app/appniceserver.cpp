@@ -1,7 +1,5 @@
 #ifndef WIN32
 #include <unistd.h>
-#include <cstdlib>
-#include <cstring>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -15,8 +13,6 @@
 #include <vector>
 #include <sstream>
 #include <cctype>
-#include <cstdint>
-#include <algorithm>
 #include <udt.h>
 #include "test_util.h"
 
@@ -68,11 +64,6 @@ bool decodeField(const string &line, size_t &pos, string &value)
 }
 }
 
-namespace
-{
-bool g_verbose = false;
-}
-
 string formatICEInfo(const string &ufrag, const string &pwd, const vector<string> &candidates)
 {
    string line = encodeField(ufrag) + encodeField(pwd);
@@ -105,15 +96,13 @@ bool parseICEInfo(const string &line, string &ufrag, string &pwd, vector<string>
 int main(int argc, char* argv[])
 {
    const char* usage = "usage: appniceserver [--verbose|--quiet]";
-   bool verbose = false;
-
    for (int i = 1; i < argc; ++i)
    {
       string arg(argv[i]);
-      if ((arg == "--verbose") || (arg == "-v"))
-         verbose = true;
-      else if ((arg == "--quiet") || (arg == "-q"))
-         verbose = false;
+      if ((arg == "--verbose") || (arg == "-v") || (arg == "--quiet") || (arg == "-q"))
+      {
+         // Legacy options retained for compatibility but no longer change behavior.
+      }
       else if ((arg == "--help") || (arg == "-h"))
       {
          cout << usage << endl;
@@ -125,8 +114,6 @@ int main(int argc, char* argv[])
          return 0;
       }
    }
-
-   g_verbose = verbose;
 
    UDTUpDown _udt_;
 
@@ -230,94 +217,27 @@ DWORD WINAPI recvdata(LPVOID usocket)
    UDTSOCKET recver = *(UDTSOCKET*)usocket;
    delete (UDTSOCKET*)usocket;
 
-   const int size = 100000;
-   char* data = new char[size];
+   const int BUFFER_SIZE = 64;
+   char buffer[BUFFER_SIZE];
 
-   int64_t total = 0;
-   bool done = false;
-
-   const int SUMMARY_INTERVAL = 128;
-   int summaryChunkCount = 0;
-   int64_t summaryBytes = 0;
-
-   while (!done)
+   while (true)
    {
-      int rsize = 0;
-      while (rsize < size)
+      int received = UDT::recv(recver, buffer, BUFFER_SIZE, 0);
+      if (UDT::ERROR == received)
       {
-         int rcv_size = 0;
-         int var_size = sizeof(int);
-         if (UDT::ERROR == UDT::getsockopt(recver, 0, UDT_RCVDATA, &rcv_size, &var_size))
-         {
-            cout << "getsockopt: " << UDT::getlasterror().getErrorMessage() << endl;
-            done = true;
-            break;
-         }
-
-         int rs = UDT::recv(recver, data + rsize, size - rsize, 0);
-         if (UDT::ERROR == rs)
-         {
-            cout << "recv: " << UDT::getlasterror().getErrorMessage() << endl;
-            done = true;
-            break;
-         }
-
-         if (0 == rs)
-         {
-            done = true;
-            break;
-         }
-
-         rsize += rs;
-         total += rs;
-
-         if (g_verbose)
-         {
-            const int preview_len = min(rs, 32);
-            string preview;
-            preview.reserve(preview_len);
-            for (int i = 0; i < preview_len; ++i)
-            {
-               unsigned char ch = static_cast<unsigned char>(data[rsize - rs + i]);
-               preview += isprint(ch) ? static_cast<char>(ch) : '.';
-            }
-
-            cout << "Received " << rs << " bytes (iteration total: " << rsize
-                 << ", cumulative total: " << total << ")";
-            if (preview_len > 0)
-               cout << ", preview: \"" << preview << "\"";
-            cout << endl;
-            cout.flush();
-         }
-         else
-         {
-            ++summaryChunkCount;
-            summaryBytes += rs;
-            if (summaryChunkCount >= SUMMARY_INTERVAL)
-            {
-               cout << "Received " << summaryBytes << " bytes across the last "
-                    << summaryChunkCount << " chunks (iteration total: " << rsize
-                    << ", cumulative total: " << total << ")" << endl;
-               summaryChunkCount = 0;
-               summaryBytes = 0;
-            }
-         }
+         cout << "recv: " << UDT::getlasterror().getErrorMessage() << endl;
+         break;
       }
 
-      if (done || rsize < size)
+      if (0 == received)
+      {
+         cout << "connection closed by peer" << endl;
          break;
+      }
+
+      string message(buffer, buffer + received);
+      cout << "Received: " << message << endl;
    }
-
-   if (!g_verbose && summaryChunkCount > 0)
-   {
-      cout << "Received " << summaryBytes << " bytes across the last "
-           << summaryChunkCount << " chunks (cumulative total: " << total
-           << ")" << endl;
-   }
-
-   cout << "connection closed after receiving " << total << " bytes" << endl;
-
-   delete [] data;
 
    UDT::close(recver);
 
