@@ -16,10 +16,14 @@ ifneq ($(findstring glib-2.0,$(NICE_CFLAGS)),glib-2.0)
 NICE_CFLAGS := $(shell $(PKG_CONFIG) --cflags nice glib-2.0 2>/dev/null)
 endif
 NICE_LIBS ?= $(shell $(PKG_CONFIG) --libs nice 2>/dev/null)
+GST_CFLAGS ?= $(shell $(PKG_CONFIG) --cflags gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 2>/dev/null)
+GST_LIBS ?= $(shell $(PKG_CONFIG) --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 2>/dev/null)
 CXXFLAGS += $(NICE_CFLAGS)
 # For systems without pkg-config, set NICE_CFLAGS and NICE_LIBS manually, e.g.:
 # NICE_CFLAGS=-I/usr/include/nice -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
 # NICE_LIBS=-lnice -lglib-2.0
+# GST_CFLAGS=-I/usr/include/gstreamer-1.0 -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include
+# GST_LIBS=-lgstreamer-1.0 -lgstapp-1.0 -lgstvideo-1.0
 
 ifeq ($(arch), IA32)
    CXXFLAGS += -DIA32 #-mcpu=pentiumpro -march=pentiumpro -mmmx -msse
@@ -49,7 +53,10 @@ endif
 
 DIR = $(shell pwd)
 
-APP = appserver appclient sendfile recvfile test appniceserver appniceclient nice_channel_retry_test
+APP = appserver appclient sendfile recvfile test appniceserver appniceclient appgstserver appgstclient nice_channel_retry_test
+
+appgstserver.o: CXXFLAGS += $(GST_CFLAGS)
+appgstclient.o: CXXFLAGS += $(GST_CFLAGS)
 
 all: $(APP)
 
@@ -70,6 +77,10 @@ appniceserver: appniceserver.o
 	$(CXX) $^ -o $@ $(LIBS)
 appniceclient: appniceclient.o
 	$(CXX) $^ -o $@ $(LIBS)
+appgstserver: appgstserver.o
+	$(CXX) $^ -o $@ $(LIBS) $(GST_LIBS)
+appgstclient: appgstclient.o
+	$(CXX) $^ -o $@ $(LIBS) $(GST_LIBS)
 nice_channel_retry_test: nice_channel_retry_test.o
 	$(CXX) $^ -o $@ $(LIBS)
 
