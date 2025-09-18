@@ -23,10 +23,14 @@ m_iRcvBufSize(65536),
 m_bConnected(false),
 m_bFailed(false),
 m_bGatheringDone(false),
-m_bControlling(controlling)
+m_bControlling(controlling),
+m_bClosing(false),
+m_ActiveSends(0)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
+   g_mutex_init(&m_CloseLock);
+   g_cond_init(&m_CloseCond);
    memset(&m_SockAddr, 0, sizeof(m_SockAddr));
    memset(&m_PeerAddr, 0, sizeof(m_PeerAddr));
 }
@@ -44,10 +48,14 @@ m_iRcvBufSize(65536),
 m_bConnected(false),
 m_bFailed(false),
 m_bGatheringDone(false),
-m_bControlling(controlling)
+m_bControlling(controlling),
+m_bClosing(false),
+m_ActiveSends(0)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
+   g_mutex_init(&m_CloseLock);
+   g_cond_init(&m_CloseCond);
    memset(&m_SockAddr, 0, sizeof(m_SockAddr));
    memset(&m_PeerAddr, 0, sizeof(m_PeerAddr));
 }
@@ -57,12 +65,19 @@ CNiceChannel::~CNiceChannel()
    close();
    g_cond_clear(&m_StateCond);
    g_mutex_clear(&m_StateLock);
+   g_cond_clear(&m_CloseCond);
+   g_mutex_clear(&m_CloseLock);
 }
 
 void CNiceChannel::open(const sockaddr* addr)
 {
    try
    {
+      g_mutex_lock(&m_CloseLock);
+      m_bClosing = false;
+      m_ActiveSends = 0;
+      g_mutex_unlock(&m_CloseLock);
+
       m_bConnected = false;
       m_bFailed = false;
       m_bGatheringDone = false;
@@ -119,6 +134,13 @@ void CNiceChannel::open(UDPSOCKET udpsock)
 
 void CNiceChannel::close()
 {
+   g_mutex_lock(&m_CloseLock);
+   if (!m_bClosing)
+      m_bClosing = true;
+   while (m_ActiveSends > 0)
+      g_cond_wait(&m_CloseCond, &m_CloseLock);
+   g_mutex_unlock(&m_CloseLock);
+
    if (m_pAgent)
    {
       // Detach any receive callback and stop the stream so that libnice
@@ -160,6 +182,11 @@ void CNiceChannel::close()
       g_async_queue_unref(m_pRecvQueue);
       m_pRecvQueue = NULL;
    }
+
+   g_mutex_lock(&m_CloseLock);
+   m_bClosing = false;
+   m_ActiveSends = 0;
+   g_mutex_unlock(&m_CloseLock);
 }
 
 int CNiceChannel::getSndBufSize()
@@ -274,29 +301,47 @@ int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
 
    if (m_pContext && m_pAgent)
    {
-      SendRequest request;
-      request.channel = this;
-      request.buffer = buf;
-      request.size = size;
+      CNiceChannel* self = const_cast<CNiceChannel*>(this);
+      bool can_send = false;
 
-      request.completed = false;
-
-      g_main_context_invoke_full(m_pContext,
-                                 G_PRIORITY_DEFAULT,
-                                 &CNiceChannel::cb_send_dispatch,
-                                 &request,
-                                 NULL);
-
-      g_mutex_lock(&request.mutex);
-      while (!request.completed)
-         g_cond_wait(&request.cond, &request.mutex);
-      result = request.result;
-      if (request.buffer)
+      g_mutex_lock(&self->m_CloseLock);
+      if (!self->m_bClosing && self->m_pAgent)
       {
-         g_free(request.buffer);
-         request.buffer = NULL;
+         ++ self->m_ActiveSends;
+         can_send = true;
       }
-      g_mutex_unlock(&request.mutex);
+      g_mutex_unlock(&self->m_CloseLock);
+
+      if (can_send)
+      {
+         SendRequest request;
+         request.channel = self;
+         request.buffer = buf;
+         request.size = size;
+         request.completed = false;
+         request.tracked = true;
+
+         g_main_context_invoke_full(m_pContext,
+                                    G_PRIORITY_DEFAULT,
+                                    &CNiceChannel::cb_send_dispatch,
+                                    &request,
+                                    NULL);
+
+         g_mutex_lock(&request.mutex);
+         while (!request.completed)
+            g_cond_wait(&request.cond, &request.mutex);
+         result = request.result;
+         if (request.buffer)
+         {
+            g_free(request.buffer);
+            request.buffer = NULL;
+         }
+         g_mutex_unlock(&request.mutex);
+      }
+      else
+      {
+         g_free(buf);
+      }
    }
    else
    {
@@ -397,14 +442,35 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
 
    g_mutex_lock(&request->mutex);
 
-   if (request->buffer && request->channel->m_pAgent)
-      request->result = nice_agent_send(request->channel->m_pAgent,
-                                        request->channel->m_iStreamID,
-                                        request->channel->m_iComponentID,
-                                        request->size,
-                                        (char*)request->buffer);
+   CNiceChannel* channel = request->channel;
+
+   if (channel && request->tracked)
+   {
+      g_mutex_lock(&channel->m_CloseLock);
+
+      if (!channel->m_bClosing && channel->m_pAgent && request->buffer)
+         request->result = nice_agent_send(channel->m_pAgent,
+                                           channel->m_iStreamID,
+                                           channel->m_iComponentID,
+                                           request->size,
+                                           (char*)request->buffer);
+      else
+         request->result = -1;
+
+      if (channel->m_ActiveSends > 0)
+      {
+         -- channel->m_ActiveSends;
+         if (0 == channel->m_ActiveSends)
+            g_cond_signal(&channel->m_CloseCond);
+      }
+      request->tracked = false;
+
+      g_mutex_unlock(&channel->m_CloseLock);
+   }
    else
+   {
       request->result = -1;
+   }
 
    if (request->buffer)
    {
