@@ -16,6 +16,7 @@
 #include <sstream>
 #include <cctype>
 #include <cstdint>
+#include <algorithm>
 #include <udt.h>
 #include "test_util.h"
 
@@ -241,9 +242,24 @@ DWORD WINAPI recvdata(LPVOID usocket)
          }
 
          rsize += rs;
-      }
+         total += rs;
 
-      total += rsize;
+         const int preview_len = min(rs, 32);
+         string preview;
+         preview.reserve(preview_len);
+         for (int i = 0; i < preview_len; ++i)
+         {
+            unsigned char ch = static_cast<unsigned char>(data[rsize - rs + i]);
+            preview += isprint(ch) ? static_cast<char>(ch) : '.';
+         }
+
+         cout << "Received " << rs << " bytes (iteration total: " << rsize
+              << ", cumulative total: " << total << ")";
+         if (preview_len > 0)
+            cout << ", preview: \"" << preview << "\"";
+         cout << endl;
+         cout.flush();
+      }
 
       if (done || rsize < size)
          break;
