@@ -14,6 +14,8 @@
 #include <vector>
 #include <sstream>
 #include <cctype>
+#include <algorithm>
+#include <iomanip>
 #include <udt.h>
 #include "test_util.h"
 
@@ -152,6 +154,10 @@ int main(int argc, char* argv[])
 
    int size = 100000;
    char* data = new char[size];
+   memset(data, 0, size);
+
+   size_t chunkCount = 0;
+   size_t totalBytesSent = 0;
 
 #ifndef WIN32
    pthread_t monitor_thread;
@@ -166,13 +172,35 @@ int main(int argc, char* argv[])
       int ss;
       while (ssize < size)
       {
-         if (UDT::ERROR == (ss = UDT::send(client, data + ssize, size - ssize, 0)))
+         const char* chunkStart = data + ssize;
+         if (UDT::ERROR == (ss = UDT::send(client, chunkStart, size - ssize, 0)))
          {
             cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
             break;
          }
 
          ssize += ss;
+         totalBytesSent += static_cast<size_t>(ss);
+         ++chunkCount;
+
+         size_t bytesToPreview = min(static_cast<size_t>(ss), static_cast<size_t>(16));
+         ostringstream preview;
+         preview << hex << setfill('0');
+         for (size_t b = 0; b < bytesToPreview; ++b)
+         {
+            preview << setw(2) << static_cast<int>(static_cast<unsigned char>(chunkStart[b]));
+            if (b + 1 < bytesToPreview)
+               preview << ' ';
+         }
+
+         cout << "[UDT::send] chunk " << static_cast<unsigned long long>(chunkCount)
+              << " sent " << ss << " bytes (total "
+              << static_cast<unsigned long long>(totalBytesSent) << " bytes). ";
+         if (bytesToPreview > 0)
+            cout << "Preview: " << preview.str();
+         else
+            cout << "Preview: <empty>";
+         cout << '\n' << flush;
       }
 
       if (ssize < size)
