@@ -522,8 +522,13 @@ void CSndQueue::init(CChannel* c, CTimer* t)
 {
    CSndQueue* self = (CSndQueue*)param;
 
-   while (!self->m_bClosing)
+   bool draining = false;
+
+   while (true)
    {
+      if (self->m_bClosing)
+         draining = true;
+
       uint64_t ts = self->m_pSndUList->getNextProcTime();
 
       if (ts > 0)
@@ -538,12 +543,19 @@ void CSndQueue::init(CChannel* c, CTimer* t)
          sockaddr* addr;
          CPacket pkt;
          if (self->m_pSndUList->pop(addr, pkt) < 0)
+         {
+            if (draining && self->m_pSndUList->getNextProcTime() == 0)
+               break;
             continue;
+         }
 
          self->m_pChannel->sendto(addr, pkt);
       }
       else
       {
+         if (draining)
+            break;
+
          // wait here if there is no sockets with data to be sent
          #ifndef WIN32
             pthread_mutex_lock(&self->m_WindowLock);
@@ -567,8 +579,10 @@ void CSndQueue::init(CChannel* c, CTimer* t)
 int CSndQueue::sendto(const sockaddr* addr, CPacket& packet)
 {
    // send out the packet immediately (high priority), this is a control packet
-   m_pChannel->sendto(addr, packet);
-   return packet.getLength();
+   if (NULL == m_pChannel)
+      return -1;
+
+   return m_pChannel->sendto(addr, packet);
 }
 
 

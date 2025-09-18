@@ -265,13 +265,50 @@ int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
       ++ p;
    }
 
-   int size = CPacket::m_iPktHdrSize + packet.getLength();
+   const int size = CPacket::m_iPktHdrSize + packet.getLength();
    guint8* buf = (guint8*)g_malloc(size);
    memcpy(buf, packet.header(), CPacket::m_iPktHdrSize);
    memcpy(buf + CPacket::m_iPktHdrSize, packet.m_pcData, packet.getLength());
 
-   int res = nice_agent_send(m_pAgent, m_iStreamID, m_iComponentID, size, (char*)buf);
-   g_free(buf);
+   int result = -1;
+
+   if (m_pContext && m_pAgent)
+   {
+      SendRequest request;
+      request.channel = this;
+      request.buffer = buf;
+      request.size = size;
+
+      guint source_id = g_main_context_invoke_full(m_pContext,
+                                                   G_PRIORITY_DEFAULT,
+                                                   &CNiceChannel::cb_send_dispatch,
+                                                   &request,
+                                                   NULL);
+
+      if (0 == source_id)
+      {
+         if (request.buffer)
+         {
+            g_free(request.buffer);
+            request.buffer = NULL;
+         }
+      }
+      else
+      {
+         g_mutex_lock(&request.mutex);
+         while (!request.completed)
+            g_cond_wait(&request.cond, &request.mutex);
+         result = request.result;
+         g_mutex_unlock(&request.mutex);
+      }
+
+      if (request.buffer)
+         g_free(request.buffer);
+   }
+   else
+   {
+      g_free(buf);
+   }
 
    p = packet.header();
    for (int k = 0; k < 4; ++ k)
@@ -286,7 +323,7 @@ int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
          *((uint32_t *)packet.m_pcData + l) = ntohl(*((uint32_t *)packet.m_pcData + l));
    }
 
-   return res;
+   return result;
 }
 
 int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
@@ -359,6 +396,34 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
    }
 
    return packet.getLength();
+}
+
+gboolean CNiceChannel::cb_send_dispatch(gpointer data)
+{
+   SendRequest* request = static_cast<SendRequest*>(data);
+
+   g_mutex_lock(&request->mutex);
+
+   if (request->buffer && request->channel->m_pAgent)
+      request->result = nice_agent_send(request->channel->m_pAgent,
+                                        request->channel->m_iStreamID,
+                                        request->channel->m_iComponentID,
+                                        request->size,
+                                        (char*)request->buffer);
+   else
+      request->result = -1;
+
+   if (request->buffer)
+   {
+      g_free(request->buffer);
+      request->buffer = NULL;
+   }
+
+   request->completed = true;
+   g_cond_signal(&request->cond);
+   g_mutex_unlock(&request->mutex);
+
+   return G_SOURCE_REMOVE;
 }
 
 int CNiceChannel::getLocalCredentials(std::string& ufrag, std::string& pwd) const

@@ -96,6 +96,34 @@ public:
    void setControllingMode(bool controlling);
 
 private:
+   struct SendRequest
+   {
+      const CNiceChannel* channel;
+      guint8*              buffer;
+      gsize                size;
+      int                  result;
+      bool                 completed;
+      GMutex               mutex;
+      GCond                cond;
+
+      SendRequest()
+      : channel(NULL)
+      , buffer(NULL)
+      , size(0)
+      , result(-1)
+      , completed(false)
+      {
+         g_mutex_init(&mutex);
+         g_cond_init(&cond);
+      }
+
+      ~SendRequest()
+      {
+         g_cond_clear(&cond);
+         g_mutex_clear(&mutex);
+      }
+   };
+
    static void cb_recv(NiceAgent* agent, guint stream_id, guint component_id,
                        guint len, gchar* buf, gpointer data);
    static gpointer cb_loop(gpointer data);
@@ -104,6 +132,7 @@ private:
                                gpointer data);
    static void cb_candidate_gathering_done(NiceAgent* agent, guint stream_id,
                                            gpointer data);
+   static gboolean cb_send_dispatch(gpointer data);
 
 private:
    NiceAgent*     m_pAgent;
