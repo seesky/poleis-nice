@@ -2,7 +2,9 @@
 #include <unistd.h>
 #include <cstdlib>
 #include <cstring>
+#include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #else
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -18,6 +20,12 @@
 #include "test_util.h"
 
 using namespace std;
+
+#ifndef WIN32
+void* recvdata(void*);
+#else
+DWORD WINAPI recvdata(LPVOID);
+#endif
 
 namespace
 {
@@ -142,30 +150,81 @@ int main(int argc, char* argv[])
       return 0;
    }
 
-   sockaddr_storage clientaddr;
-   int addrlen = sizeof(clientaddr);
-   UDTSOCKET recver = UDT::accept(serv, (sockaddr*)&clientaddr, &addrlen);
-   if (UDT::INVALID_SOCK == recver)
+   while (true)
    {
-      cout << "accept: " << UDT::getlasterror().getErrorMessage() << endl;
-      return 0;
+      sockaddr_storage clientaddr;
+      int addrlen = sizeof(clientaddr);
+      UDTSOCKET recver = UDT::accept(serv, (sockaddr*)&clientaddr, &addrlen);
+      if (UDT::INVALID_SOCK == recver)
+      {
+         cout << "accept: " << UDT::getlasterror().getErrorMessage() << endl;
+         continue;
+      }
+
+      char clienthost[NI_MAXHOST] = {0};
+      char clientservice[NI_MAXSERV] = {0};
+      if (0 == getnameinfo((sockaddr*)&clientaddr, addrlen, clienthost, sizeof(clienthost), clientservice, sizeof(clientservice), NI_NUMERICHOST | NI_NUMERICSERV))
+         cout << "new connection: " << clienthost << ":" << clientservice << endl;
+      else
+         cout << "new connection" << endl;
+
+#ifndef WIN32
+      UDTSOCKET* worker = new UDTSOCKET(recver);
+      pthread_t rcvthread;
+      if (0 != pthread_create(&rcvthread, NULL, recvdata, worker))
+      {
+         cout << "pthread_create failed" << endl;
+         delete worker;
+         UDT::close(recver);
+         continue;
+      }
+      pthread_detach(rcvthread);
+#else
+      UDTSOCKET* worker = new UDTSOCKET(recver);
+      HANDLE rcvthread = CreateThread(NULL, 0, recvdata, worker, 0, NULL);
+      if (NULL == rcvthread)
+      {
+         cout << "CreateThread failed" << endl;
+         delete worker;
+         UDT::close(recver);
+         continue;
+      }
+      CloseHandle(rcvthread);
+#endif
    }
 
-   cout << "connection established" << endl;
+   UDT::close(serv);
+   return 0;
+}
+
+#ifndef WIN32
+void* recvdata(void* usocket)
+#else
+DWORD WINAPI recvdata(LPVOID usocket)
+#endif
+{
+   UDTSOCKET recver = *(UDTSOCKET*)usocket;
+   delete (UDTSOCKET*)usocket;
 
    const int size = 100000;
    char* data = new char[size];
 
    int64_t total = 0;
    bool done = false;
+
    while (!done)
    {
       int rsize = 0;
       while (rsize < size)
       {
-         int rcv_size;
+         int rcv_size = 0;
          int var_size = sizeof(int);
-         UDT::getsockopt(recver, 0, UDT_RCVDATA, &rcv_size, &var_size);
+         if (UDT::ERROR == UDT::getsockopt(recver, 0, UDT_RCVDATA, &rcv_size, &var_size))
+         {
+            cout << "getsockopt: " << UDT::getlasterror().getErrorMessage() << endl;
+            done = true;
+            break;
+         }
 
          int rs = UDT::recv(recver, data + rsize, size - rsize, 0);
          if (UDT::ERROR == rs)
@@ -190,11 +249,15 @@ int main(int argc, char* argv[])
          break;
    }
 
-   cout << "total bytes received: " << total << endl;
+   cout << "connection closed after receiving " << total << " bytes" << endl;
 
    delete [] data;
 
    UDT::close(recver);
-   UDT::close(serv);
+
+#ifndef WIN32
+   return NULL;
+#else
    return 0;
+#endif
 }
