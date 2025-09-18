@@ -1,6 +1,7 @@
 #ifndef WIN32
 #include <unistd.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #else
 #include <winsock2.h>
 #include <windows.h>
@@ -16,6 +17,21 @@
 #include "test_util.h"
 
 using namespace std;
+
+namespace
+{
+struct MonitorContext
+{
+   UDTSOCKET socket;
+   volatile bool* running;
+};
+}
+
+#ifndef WIN32
+void* monitor(void*);
+#else
+DWORD WINAPI monitor(LPVOID);
+#endif
 
 namespace
 {
@@ -113,6 +129,18 @@ int main(int argc, char* argv[])
 
    UDTSOCKET client = UDT::socket(AF_INET, SOCK_STREAM, 0);
 
+   volatile bool running = true;
+   MonitorContext monitor_ctx;
+   monitor_ctx.socket = client;
+   monitor_ctx.running = &running;
+
+#ifndef WIN32
+   pthread_t monitor_thread;
+#else
+   HANDLE monitor_thread = NULL;
+#endif
+   bool monitor_started = false;
+
    sockaddr_in any;
    any.sin_family = AF_INET;
    any.sin_port = 0;
@@ -156,9 +184,23 @@ int main(int argc, char* argv[])
       return 0;
    }
 
+   cout << "SendRate(Mb/s)\tRTT(ms)\tCWnd\tPktSndPeriod(us)\tRecvACK\tRecvNAK" << endl;
+
+#ifndef WIN32
+   if (0 == pthread_create(&monitor_thread, NULL, monitor, &monitor_ctx))
+      monitor_started = true;
+   else
+      cout << "Unable to start monitor thread" << endl;
+#else
+   monitor_thread = CreateThread(NULL, 0, monitor, &monitor_ctx, 0, NULL);
+   if (NULL != monitor_thread)
+      monitor_started = true;
+   else
+      cout << "Unable to start monitor thread" << endl;
+#endif
+
    const string message = "hello word!";
 
-   bool running = true;
    while (running)
    {
       int sent = 0;
@@ -194,6 +236,58 @@ int main(int argc, char* argv[])
 #endif
    }
 
+   running = false;
+
+   if (monitor_started)
+   {
+#ifndef WIN32
+      pthread_join(monitor_thread, NULL);
+#else
+      WaitForSingleObject(monitor_thread, INFINITE);
+      CloseHandle(monitor_thread);
+#endif
+   }
+
    UDT::close(client);
    return 0;
+}
+
+#ifndef WIN32
+void* monitor(void* param)
+#else
+DWORD WINAPI monitor(LPVOID param)
+#endif
+{
+   MonitorContext* ctx = static_cast<MonitorContext*>(param);
+   UDTSOCKET u = ctx->socket;
+
+   UDT::TRACEINFO perf;
+
+   while (*(ctx->running))
+   {
+      if (UDT::ERROR == UDT::perfmon(u, &perf))
+      {
+         cout << "perfmon: " << UDT::getlasterror().getErrorMessage() << endl;
+         break;
+      }
+
+      cout << perf.mbpsSendRate << "\t\t"
+           << perf.msRTT << "\t"
+           << perf.pktCongestionWindow << "\t"
+           << perf.usPktSndPeriod << "\t\t\t"
+           << perf.pktRecvACK << "\t"
+           << perf.pktRecvNAK << endl;
+
+#ifndef WIN32
+      sleep(1);
+#else
+      Sleep(1000);
+#endif
+   }
+
+#ifndef WIN32
+   return NULL;
+#else
+   return 0;
+#endif
 }
