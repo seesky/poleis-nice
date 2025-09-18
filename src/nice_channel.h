@@ -98,11 +98,12 @@ public:
 private:
    struct SendRequest
    {
-      const CNiceChannel* channel;
+      CNiceChannel*       channel;
       guint8*              buffer;
       gsize                size;
       int                  result;
       bool                 completed;
+      bool                 tracked;
       GMutex               mutex;
       GCond                cond;
 
@@ -112,6 +113,7 @@ private:
       , size(0)
       , result(-1)
       , completed(false)
+      , tracked(false)
       {
          g_mutex_init(&mutex);
          g_cond_init(&cond);
@@ -154,6 +156,10 @@ private:
    bool           m_bControlling;
    mutable sockaddr_storage m_SockAddr;
    mutable sockaddr_storage m_PeerAddr;
+   mutable GMutex m_CloseLock;
+   mutable GCond  m_CloseCond;
+   mutable bool   m_bClosing;
+   mutable guint  m_ActiveSends;
 };
 
 #endif // USE_LIBNICE
