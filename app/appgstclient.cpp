@@ -203,11 +203,11 @@ void set_property_if_exists(GstElement* element, const char* property, gint valu
       g_object_set(element, property, value, nullptr);
 }
 
-void set_property_if_exists(GstElement* element, const char* property, gboolean value)
+void set_property_if_exists(GstElement* element, const char* property, bool value)
 {
    GParamSpec* pspec = g_object_class_find_property(G_OBJECT_GET_CLASS(element), property);
    if (pspec && (G_PARAM_SPEC_VALUE_TYPE(pspec) == G_TYPE_BOOLEAN))
-      g_object_set(element, property, value, nullptr);
+      g_object_set(element, property, value ? TRUE : FALSE, nullptr);
 }
 
 void set_property_if_exists(GstElement* element, const char* property, const char* value)
@@ -420,13 +420,13 @@ bool run_pipeline(PipelineContext& ctx)
 
    g_object_set(queue, "leaky", 2, "max-size-buffers", 2, "max-size-time", static_cast<guint64>(0), nullptr);
 
-   set_property_if_exists(source, "cursor", TRUE);
-   set_property_if_exists(source, "show-cursor", TRUE);
-   set_property_if_exists(source, "is-live", TRUE);
+   set_property_if_exists(source, "cursor", true);
+   set_property_if_exists(source, "show-cursor", true);
+   set_property_if_exists(source, "is-live", true);
 
    set_property_if_exists(encoder, "tune", "zerolatency");
    set_property_if_exists(encoder, "speed-preset", "ultrafast");
-   set_property_if_exists(encoder, "low-latency", TRUE);
+   set_property_if_exists(encoder, "low-latency", true);
    set_property_if_exists(encoder, "bframes", 0);
 
    g_object_set(parse, "config-interval", 1, nullptr);
