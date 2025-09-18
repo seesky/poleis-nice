@@ -27,8 +27,6 @@
 
 #include "test_util.h"
 
-using namespace std::chrono_literals;
-
 namespace
 {
 std::string encodeField(const std::string& value)
@@ -117,7 +115,7 @@ bool send_all_nonblocking(UDTSOCKET sock, const guint8* data, size_t len, std::a
          CUDTException ex = UDT::getlasterror();
          if (CUDTException::EASYNCSND == ex.getErrorCode())
          {
-            std::this_thread::sleep_for(1ms);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
          }
          std::cerr << "send: " << ex.getErrorMessage() << std::endl;
