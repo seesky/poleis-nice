@@ -13,6 +13,8 @@
 #include <vector>
 #include <sstream>
 #include <cctype>
+#include <chrono>
+#include <thread>
 #include <udt.h>
 #include "test_util.h"
 
@@ -229,11 +231,7 @@ int main(int argc, char* argv[])
 
       cout << "Sent: " << message << endl;
 
-#ifndef WIN32
-      sleep(1);
-#else
-      Sleep(1000);
-#endif
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
    }
 
    running = false;
