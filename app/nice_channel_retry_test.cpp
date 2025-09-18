@@ -14,7 +14,7 @@ namespace
 {
 int g_send_attempts = 0;
 
-gint FakeNiceAgentSend(NiceAgent*, guint, guint, gsize len, const gchar*)
+gint FakeNiceAgentSend(NiceAgent*, guint, guint, guint len, const gchar*)
 {
    ++ g_send_attempts;
    if (g_send_attempts == 1)

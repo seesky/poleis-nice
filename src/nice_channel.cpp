@@ -301,7 +301,9 @@ int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
    }
 
    const int size = CPacket::m_iPktHdrSize + packet.getLength();
-   guint8* buf = (guint8*)g_malloc(size);
+   const gsize alloc_size = static_cast<gsize>(size);
+   const guint send_size = static_cast<guint>(size);
+   guint8* buf = static_cast<guint8*>(g_malloc(alloc_size));
    memcpy(buf, packet.header(), CPacket::m_iPktHdrSize);
    memcpy(buf + CPacket::m_iPktHdrSize, packet.m_pcData, packet.getLength());
 
@@ -331,7 +333,7 @@ int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
          SendRequest* request = new SendRequest();
          request->channel = self;
          request->buffer = buf;
-         request->size = size;
+         request->size = send_size;
          request->completed = false;
          request->tracked = true;
          request->pending = true;

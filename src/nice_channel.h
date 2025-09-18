@@ -100,7 +100,7 @@ private:
    {
       CNiceChannel*       channel;
       guint8*              buffer;
-      gsize                size;
+      guint                size;
       int                  result;
       bool                 completed;
       bool                 tracked;
@@ -157,7 +157,7 @@ private:
    static gboolean cb_send_dispatch(gpointer data);
    static void destroy_send_request(gpointer data);
 
-   typedef gint (*NiceAgentSendFunc)(NiceAgent*, guint, guint, gsize, const gchar*);
+   typedef gint (*NiceAgentSendFunc)(NiceAgent*, guint, guint, guint, const gchar*);
 
 public:
    static void SetAgentSendFuncForTesting(NiceAgentSendFunc func);
