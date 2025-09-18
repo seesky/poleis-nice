@@ -279,31 +279,24 @@ int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
       request.buffer = buf;
       request.size = size;
 
-      guint source_id = g_main_context_invoke_full(m_pContext,
-                                                   G_PRIORITY_DEFAULT,
-                                                   &CNiceChannel::cb_send_dispatch,
-                                                   &request,
-                                                   NULL);
+      request.completed = false;
 
-      if (0 == source_id)
-      {
-         if (request.buffer)
-         {
-            g_free(request.buffer);
-            request.buffer = NULL;
-         }
-      }
-      else
-      {
-         g_mutex_lock(&request.mutex);
-         while (!request.completed)
-            g_cond_wait(&request.cond, &request.mutex);
-         result = request.result;
-         g_mutex_unlock(&request.mutex);
-      }
+      g_main_context_invoke_full(m_pContext,
+                                 G_PRIORITY_DEFAULT,
+                                 &CNiceChannel::cb_send_dispatch,
+                                 &request,
+                                 NULL);
 
+      g_mutex_lock(&request.mutex);
+      while (!request.completed)
+         g_cond_wait(&request.cond, &request.mutex);
+      result = request.result;
       if (request.buffer)
+      {
          g_free(request.buffer);
+         request.buffer = NULL;
+      }
+      g_mutex_unlock(&request.mutex);
    }
    else
    {
