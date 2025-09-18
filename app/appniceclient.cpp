@@ -99,10 +99,26 @@ bool parseICEInfo(const string &line, string &ufrag, string &pwd, vector<string>
 
 int main(int argc, char* argv[])
 {
-   if (1 != argc)
+   const char* usage = "usage: appniceclient [--verbose|--quiet]";
+   bool verbose = false;
+
+   for (int i = 1; i < argc; ++i)
    {
-      cout << "usage: appniceclient" << endl;
-      return 0;
+      string arg(argv[i]);
+      if ((arg == "--verbose") || (arg == "-v"))
+         verbose = true;
+      else if ((arg == "--quiet") || (arg == "-q"))
+         verbose = false;
+      else if ((arg == "--help") || (arg == "-h"))
+      {
+         cout << usage << endl;
+         return 0;
+      }
+      else
+      {
+         cout << usage << endl;
+         return 0;
+      }
    }
 
    UDTUpDown _udt_;
@@ -158,6 +174,9 @@ int main(int argc, char* argv[])
 
    size_t chunkCount = 0;
    size_t totalBytesSent = 0;
+   size_t summaryChunkCount = 0;
+   size_t summaryBytesSent = 0;
+   const size_t SUMMARY_INTERVAL = 128;
 
 #ifndef WIN32
    pthread_t monitor_thread;
@@ -183,29 +202,62 @@ int main(int argc, char* argv[])
          totalBytesSent += static_cast<size_t>(ss);
          ++chunkCount;
 
-         size_t bytesToPreview = min(static_cast<size_t>(ss), static_cast<size_t>(16));
-         ostringstream preview;
-         preview << hex << setfill('0');
-         for (size_t b = 0; b < bytesToPreview; ++b)
+         if (verbose)
          {
-            preview << setw(2) << static_cast<int>(static_cast<unsigned char>(chunkStart[b]));
-            if (b + 1 < bytesToPreview)
-               preview << ' ';
-         }
+            size_t bytesToPreview = min(static_cast<size_t>(ss), static_cast<size_t>(16));
+            ostringstream preview;
+            preview << hex << setfill('0');
+            for (size_t b = 0; b < bytesToPreview; ++b)
+            {
+               preview << setw(2) << static_cast<int>(static_cast<unsigned char>(chunkStart[b]));
+               if (b + 1 < bytesToPreview)
+                  preview << ' ';
+            }
 
-         cout << "[UDT::send] chunk " << static_cast<unsigned long long>(chunkCount)
-              << " sent " << ss << " bytes (total "
-              << static_cast<unsigned long long>(totalBytesSent) << " bytes). ";
-         if (bytesToPreview > 0)
-            cout << "Preview: " << preview.str();
+            cout << "[UDT::send] chunk " << static_cast<unsigned long long>(chunkCount)
+                 << " sent " << ss << " bytes (total "
+                 << static_cast<unsigned long long>(totalBytesSent) << " bytes). ";
+            if (bytesToPreview > 0)
+               cout << "Preview: " << preview.str();
+            else
+               cout << "Preview: <empty>";
+            cout << '\n' << flush;
+         }
          else
-            cout << "Preview: <empty>";
-         cout << '\n' << flush;
+         {
+            ++summaryChunkCount;
+            summaryBytesSent += static_cast<size_t>(ss);
+            if (summaryChunkCount >= SUMMARY_INTERVAL)
+            {
+               size_t firstChunk = chunkCount - summaryChunkCount + 1;
+               cout << "[UDT::send] chunks "
+                    << static_cast<unsigned long long>(firstChunk) << "-"
+                    << static_cast<unsigned long long>(chunkCount)
+                    << " sent " << summaryBytesSent << " bytes (total "
+                    << static_cast<unsigned long long>(totalBytesSent) << " bytes)"
+                    << endl;
+               summaryChunkCount = 0;
+               summaryBytesSent = 0;
+            }
+         }
       }
 
       if (ssize < size)
          break;
    }
+
+   if (!verbose && summaryChunkCount > 0)
+   {
+      size_t firstChunk = chunkCount - summaryChunkCount + 1;
+      cout << "[UDT::send] chunks "
+           << static_cast<unsigned long long>(firstChunk) << "-"
+           << static_cast<unsigned long long>(chunkCount)
+           << " sent " << summaryBytesSent << " bytes (total "
+           << static_cast<unsigned long long>(totalBytesSent) << " bytes)"
+           << endl;
+   }
+
+   cout << "Total bytes sent: " << static_cast<unsigned long long>(totalBytesSent) << endl;
 
    UDT::close(client);
 
