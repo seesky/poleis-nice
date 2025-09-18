@@ -1,7 +1,5 @@
 #ifndef WIN32
 #include <unistd.h>
-#include <cstdlib>
-#include <cstring>
 #include <netinet/in.h>
 #else
 #include <winsock2.h>
@@ -14,18 +12,10 @@
 #include <vector>
 #include <sstream>
 #include <cctype>
-#include <algorithm>
-#include <iomanip>
 #include <udt.h>
 #include "test_util.h"
 
 using namespace std;
-
-#ifndef WIN32
-void* monitor(void*);
-#else
-DWORD WINAPI monitor(LPVOID);
-#endif
 
 namespace
 {
@@ -100,15 +90,13 @@ bool parseICEInfo(const string &line, string &ufrag, string &pwd, vector<string>
 int main(int argc, char* argv[])
 {
    const char* usage = "usage: appniceclient [--verbose|--quiet]";
-   bool verbose = false;
-
    for (int i = 1; i < argc; ++i)
    {
       string arg(argv[i]);
-      if ((arg == "--verbose") || (arg == "-v"))
-         verbose = true;
-      else if ((arg == "--quiet") || (arg == "-q"))
-         verbose = false;
+      if ((arg == "--verbose") || (arg == "-v") || (arg == "--quiet") || (arg == "-q"))
+      {
+         // Legacy options retained for compatibility but no longer change behavior.
+      }
       else if ((arg == "--help") || (arg == "-h"))
       {
          cout << usage << endl;
@@ -168,150 +156,44 @@ int main(int argc, char* argv[])
       return 0;
    }
 
-   int size = 100000;
-   char* data = new char[size];
-   memset(data, 0, size);
+   const string message = "hello word!";
 
-   size_t chunkCount = 0;
-   size_t totalBytesSent = 0;
-   size_t summaryChunkCount = 0;
-   size_t summaryBytesSent = 0;
-   const size_t SUMMARY_INTERVAL = 128;
-
-#ifndef WIN32
-   pthread_t monitor_thread;
-   pthread_create(&monitor_thread, NULL, monitor, &client);
-#else
-   HANDLE monitor_thread = CreateThread(NULL, 0, monitor, &client, 0, NULL);
-#endif
-
-   for (int i = 0; i < 1000000; ++i)
+   bool running = true;
+   while (running)
    {
-      int ssize = 0;
-      int ss;
-      while (ssize < size)
+      int sent = 0;
+      while (sent < static_cast<int>(message.size()))
       {
-         const char* chunkStart = data + ssize;
-         if (UDT::ERROR == (ss = UDT::send(client, chunkStart, size - ssize, 0)))
+         int result = UDT::send(client, message.data() + sent, static_cast<int>(message.size()) - sent, 0);
+         if (UDT::ERROR == result)
          {
             cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
+            running = false;
             break;
          }
 
-         ssize += ss;
-         totalBytesSent += static_cast<size_t>(ss);
-         ++chunkCount;
-
-         if (verbose)
+         if (0 == result)
          {
-            size_t bytesToPreview = min(static_cast<size_t>(ss), static_cast<size_t>(16));
-            ostringstream preview;
-            preview << hex << setfill('0');
-            for (size_t b = 0; b < bytesToPreview; ++b)
-            {
-               preview << setw(2) << static_cast<int>(static_cast<unsigned char>(chunkStart[b]));
-               if (b + 1 < bytesToPreview)
-                  preview << ' ';
-            }
+            cout << "send: connection closed" << endl;
+            running = false;
+            break;
+         }
 
-            cout << "[UDT::send] chunk " << static_cast<unsigned long long>(chunkCount)
-                 << " sent " << ss << " bytes (total "
-                 << static_cast<unsigned long long>(totalBytesSent) << " bytes). ";
-            if (bytesToPreview > 0)
-               cout << "Preview: " << preview.str();
-            else
-               cout << "Preview: <empty>";
-            cout << '\n' << flush;
-         }
-         else
-         {
-            ++summaryChunkCount;
-            summaryBytesSent += static_cast<size_t>(ss);
-            if (summaryChunkCount >= SUMMARY_INTERVAL)
-            {
-               size_t firstChunk = chunkCount - summaryChunkCount + 1;
-               cout << "[UDT::send] chunks "
-                    << static_cast<unsigned long long>(firstChunk) << "-"
-                    << static_cast<unsigned long long>(chunkCount)
-                    << " sent " << summaryBytesSent << " bytes (total "
-                    << static_cast<unsigned long long>(totalBytesSent) << " bytes)"
-                    << endl;
-               summaryChunkCount = 0;
-               summaryBytesSent = 0;
-            }
-         }
+         sent += result;
       }
 
-      if (ssize < size)
+      if (!running)
          break;
-   }
 
-   if (!verbose && summaryChunkCount > 0)
-   {
-      size_t firstChunk = chunkCount - summaryChunkCount + 1;
-      cout << "[UDT::send] chunks "
-           << static_cast<unsigned long long>(firstChunk) << "-"
-           << static_cast<unsigned long long>(chunkCount)
-           << " sent " << summaryBytesSent << " bytes (total "
-           << static_cast<unsigned long long>(totalBytesSent) << " bytes)"
-           << endl;
-   }
+      cout << "Sent: " << message << endl;
 
-   cout << "Total bytes sent: " << static_cast<unsigned long long>(totalBytesSent) << endl;
-
-   UDT::close(client);
-
-#ifndef WIN32
-   pthread_join(monitor_thread, NULL);
-#else
-   if (NULL != monitor_thread)
-   {
-      WaitForSingleObject(monitor_thread, INFINITE);
-      CloseHandle(monitor_thread);
-   }
-#endif
-
-   delete [] data;
-   return 0;
-}
-
-#ifndef WIN32
-void* monitor(void* s)
-#else
-DWORD WINAPI monitor(LPVOID s)
-#endif
-{
-   UDTSOCKET u = *(UDTSOCKET*)s;
-
-   UDT::TRACEINFO perf;
-
-   cout << "SendRate(Mb/s)\tRTT(ms)\tCWnd\tPktSndPeriod(us)\tRecvACK\tRecvNAK" << endl;
-
-   while (true)
-   {
 #ifndef WIN32
       sleep(1);
 #else
       Sleep(1000);
 #endif
-
-      if (UDT::ERROR == UDT::perfmon(u, &perf))
-      {
-         cout << "perfmon: " << UDT::getlasterror().getErrorMessage() << endl;
-         break;
-      }
-
-      cout << perf.mbpsSendRate << "\t\t"
-           << perf.msRTT << "\t"
-           << perf.pktCongestionWindow << "\t"
-           << perf.usPktSndPeriod << "\t\t\t"
-           << perf.pktRecvACK << "\t"
-           << perf.pktRecvNAK << endl;
    }
 
-#ifndef WIN32
-   return NULL;
-#else
+   UDT::close(client);
    return 0;
-#endif
 }
