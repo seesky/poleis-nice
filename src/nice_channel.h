@@ -104,6 +104,8 @@ private:
       int                  result;
       bool                 completed;
       bool                 tracked;
+      bool                 pending;
+      gint                 ref_count;
       GMutex               mutex;
       GCond                cond;
 
@@ -114,6 +116,8 @@ private:
       , result(-1)
       , completed(false)
       , tracked(false)
+      , pending(false)
+      , ref_count(1)
       {
          g_mutex_init(&mutex);
          g_cond_init(&cond);
@@ -123,6 +127,22 @@ private:
       {
          g_cond_clear(&cond);
          g_mutex_clear(&mutex);
+         if (buffer)
+         {
+            g_free(buffer);
+            buffer = NULL;
+         }
+      }
+
+      void ref()
+      {
+         g_atomic_int_inc(&ref_count);
+      }
+
+      void unref()
+      {
+         if (g_atomic_int_dec_and_test(&ref_count))
+            delete this;
       }
    };
 
@@ -135,6 +155,12 @@ private:
    static void cb_candidate_gathering_done(NiceAgent* agent, guint stream_id,
                                            gpointer data);
    static gboolean cb_send_dispatch(gpointer data);
+   static void destroy_send_request(gpointer data);
+
+   typedef gint (*NiceAgentSendFunc)(NiceAgent*, guint, guint, gsize, const gchar*);
+
+public:
+   static void SetAgentSendFuncForTesting(NiceAgentSendFunc func);
 
 private:
    NiceAgent*     m_pAgent;
@@ -160,6 +186,8 @@ private:
    mutable GCond  m_CloseCond;
    mutable bool   m_bClosing;
    mutable guint  m_ActiveSends;
+
+   static NiceAgentSendFunc s_SendFunc;
 };
 
 #endif // USE_LIBNICE
