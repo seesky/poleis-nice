@@ -164,11 +164,11 @@ std::string choose_video_sink()
    return std::string();
 }
 
-void set_property_if_exists(GstElement* element, const char* property, gboolean value)
+void set_property_if_exists(GstElement* element, const char* property, bool value)
 {
    GParamSpec* pspec = g_object_class_find_property(G_OBJECT_GET_CLASS(element), property);
    if (pspec && (G_PARAM_SPEC_VALUE_TYPE(pspec) == G_TYPE_BOOLEAN))
-      g_object_set(element, property, value, nullptr);
+      g_object_set(element, property, value ? TRUE : FALSE, nullptr);
 }
 
 void set_property_if_exists(GstElement* element, const char* property, gint value)
@@ -287,10 +287,10 @@ bool setup_pipeline(ServerPipelineContext& ctx, GstCaps* caps, const std::string
 
    set_property_if_exists(parse, "config-interval", 1);
 
-   set_property_if_exists(sink, "sync", FALSE);
-   set_property_if_exists(sink, "enable-last-sample", FALSE);
-   set_property_if_exists(sink, "async", FALSE);
-   set_property_if_exists(sink, "qos", FALSE);
+   set_property_if_exists(sink, "sync", false);
+   set_property_if_exists(sink, "enable-last-sample", false);
+   set_property_if_exists(sink, "async", false);
+   set_property_if_exists(sink, "qos", false);
    set_property_if_exists(sink, "max-lateness", static_cast<gint64>(0));
 
    gst_bin_add_many(GST_BIN(pipeline), appsrc, queue, parse, decodebin, sink_queue, sink, nullptr);
