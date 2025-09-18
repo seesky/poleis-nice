@@ -68,6 +68,11 @@ bool decodeField(const string &line, size_t &pos, string &value)
 }
 }
 
+namespace
+{
+bool g_verbose = false;
+}
+
 string formatICEInfo(const string &ufrag, const string &pwd, const vector<string> &candidates)
 {
    string line = encodeField(ufrag) + encodeField(pwd);
@@ -99,11 +104,29 @@ bool parseICEInfo(const string &line, string &ufrag, string &pwd, vector<string>
 
 int main(int argc, char* argv[])
 {
-   if (1 != argc)
+   const char* usage = "usage: appniceserver [--verbose|--quiet]";
+   bool verbose = false;
+
+   for (int i = 1; i < argc; ++i)
    {
-      cout << "usage: appniceserver" << endl;
-      return 0;
+      string arg(argv[i]);
+      if ((arg == "--verbose") || (arg == "-v"))
+         verbose = true;
+      else if ((arg == "--quiet") || (arg == "-q"))
+         verbose = false;
+      else if ((arg == "--help") || (arg == "-h"))
+      {
+         cout << usage << endl;
+         return 0;
+      }
+      else
+      {
+         cout << usage << endl;
+         return 0;
+      }
    }
+
+   g_verbose = verbose;
 
    UDTUpDown _udt_;
 
@@ -213,6 +236,10 @@ DWORD WINAPI recvdata(LPVOID usocket)
    int64_t total = 0;
    bool done = false;
 
+   const int SUMMARY_INTERVAL = 128;
+   int summaryChunkCount = 0;
+   int64_t summaryBytes = 0;
+
    while (!done)
    {
       int rsize = 0;
@@ -244,25 +271,48 @@ DWORD WINAPI recvdata(LPVOID usocket)
          rsize += rs;
          total += rs;
 
-         const int preview_len = min(rs, 32);
-         string preview;
-         preview.reserve(preview_len);
-         for (int i = 0; i < preview_len; ++i)
+         if (g_verbose)
          {
-            unsigned char ch = static_cast<unsigned char>(data[rsize - rs + i]);
-            preview += isprint(ch) ? static_cast<char>(ch) : '.';
-         }
+            const int preview_len = min(rs, 32);
+            string preview;
+            preview.reserve(preview_len);
+            for (int i = 0; i < preview_len; ++i)
+            {
+               unsigned char ch = static_cast<unsigned char>(data[rsize - rs + i]);
+               preview += isprint(ch) ? static_cast<char>(ch) : '.';
+            }
 
-         cout << "Received " << rs << " bytes (iteration total: " << rsize
-              << ", cumulative total: " << total << ")";
-         if (preview_len > 0)
-            cout << ", preview: \"" << preview << "\"";
-         cout << endl;
-         cout.flush();
+            cout << "Received " << rs << " bytes (iteration total: " << rsize
+                 << ", cumulative total: " << total << ")";
+            if (preview_len > 0)
+               cout << ", preview: \"" << preview << "\"";
+            cout << endl;
+            cout.flush();
+         }
+         else
+         {
+            ++summaryChunkCount;
+            summaryBytes += rs;
+            if (summaryChunkCount >= SUMMARY_INTERVAL)
+            {
+               cout << "Received " << summaryBytes << " bytes across the last "
+                    << summaryChunkCount << " chunks (iteration total: " << rsize
+                    << ", cumulative total: " << total << ")" << endl;
+               summaryChunkCount = 0;
+               summaryBytes = 0;
+            }
+         }
       }
 
       if (done || rsize < size)
          break;
+   }
+
+   if (!g_verbose && summaryChunkCount > 0)
+   {
+      cout << "Received " << summaryBytes << " bytes across the last "
+           << summaryChunkCount << " chunks (cumulative total: " << total
+           << ")" << endl;
    }
 
    cout << "connection closed after receiving " << total << " bytes" << endl;
