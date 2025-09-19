@@ -220,6 +220,8 @@ DWORD WINAPI recvdata(LPVOID usocket)
    const int BUFFER_SIZE = 64;
    char buffer[BUFFER_SIZE];
 
+   double count = 0;
+
    while (true)
    {
       int received = UDT::recv(recver, buffer, BUFFER_SIZE, 0);
@@ -237,6 +239,8 @@ DWORD WINAPI recvdata(LPVOID usocket)
 
       string message(buffer, buffer + received);
       cout << "Received: " << message << endl;
+      count = count + 1;
+      // cout << "Received Message Count: " << count << endl;
    }
 
    UDT::close(recver);

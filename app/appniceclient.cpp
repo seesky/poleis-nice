@@ -105,6 +105,27 @@ bool parseICEInfo(const string &line, string &ufrag, string &pwd, vector<string>
    return true;
 }
 
+std::string getTimestampSec() {
+    auto now = std::chrono::system_clock::now();
+    auto ts = std::chrono::duration_cast<std::chrono::seconds>(
+                  now.time_since_epoch()).count();
+    return std::to_string(ts);
+}
+
+std::string getTimestampMs() {
+    auto now = std::chrono::system_clock::now();
+    auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  now.time_since_epoch()).count();
+    return std::to_string(ts);
+}
+
+std::string getTimestampUs() {
+    auto now = std::chrono::system_clock::now();
+    auto ts = std::chrono::duration_cast<std::chrono::microseconds>(
+                  now.time_since_epoch()).count();
+    return std::to_string(ts);
+}
+
 int main(int argc, char* argv[])
 {
    const char* usage = "usage: appniceclient [--verbose|--quiet]";
@@ -201,14 +222,16 @@ int main(int argc, char* argv[])
       cout << "Unable to start monitor thread" << endl;
 #endif
 
-   const string message = "hello word!";
+   const string message = "Please fell free to get in touch whenever you fell like it!";
 
    while (running)
    {
+      const string time = getTimestampUs();
       int sent = 0;
-      while (sent < static_cast<int>(message.size()))
+      while (sent < static_cast<int>(time.size()))
       {
-         int result = UDT::send(client, message.data() + sent, static_cast<int>(message.size()) - sent, 0);
+         
+         int result = UDT::send(client, time.data() + sent, static_cast<int>(time.size()) - sent, 0);
          if (UDT::ERROR == result)
          {
             cout << "send: " << UDT::getlasterror().getErrorMessage() << endl;
@@ -229,7 +252,7 @@ int main(int argc, char* argv[])
       if (!running)
          break;
 
-      cout << "Sent: " << message << endl;
+      // cout << "Sent: " << message << endl;
 
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
    }
@@ -268,7 +291,7 @@ DWORD WINAPI monitor(LPVOID param)
          cout << "perfmon: " << UDT::getlasterror().getErrorMessage() << endl;
          break;
       }
-
+      
       cout << perf.mbpsSendRate << "\t\t"
            << perf.msRTT << "\t"
            << perf.pktCongestionWindow << "\t"
