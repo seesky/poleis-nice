@@ -493,8 +493,9 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
          else
          {
             int err = errno;
-            if ((EAGAIN == err || EWOULDBLOCK == err) && context)
+            if ((EAGAIN == err || EWOULDBLOCK == err || ENOBUFS == err || ENOMEM == err || EINTR == err) && context)
             {
+               // Temporary congestion signals from the kernel; retry the send later.
                reschedule = true;
             }
             else
