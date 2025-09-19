@@ -188,6 +188,11 @@ private:
    mutable guint  m_ActiveSends;
 
    static NiceAgentSendFunc s_SendFunc;
+   static gsize s_DebugInitToken;
+   static gboolean s_DebugLoggingEnabled;
+   static void EnsureDebugLoggingInitialized();
+   static gboolean IsDebugLoggingEnabled();
+   static void DebugLog(const gchar* format, ...) G_GNUC_PRINTF(1, 2);
 };
 
 #endif // USE_LIBNICE

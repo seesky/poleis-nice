@@ -5,6 +5,7 @@
 #include <nice/address.h>
 #include <cstring>
 #include <cerrno>
+#include <cstdarg>
 #ifndef WIN32
 #include <arpa/inet.h>
 #else
@@ -12,6 +13,101 @@
 #endif
 
 CNiceChannel::NiceAgentSendFunc CNiceChannel::s_SendFunc = nice_agent_send;
+gsize CNiceChannel::s_DebugInitToken = 0;
+gboolean CNiceChannel::s_DebugLoggingEnabled = FALSE;
+
+namespace
+{
+gboolean EnvValueEnablesDebug(const gchar* value)
+{
+   if (!value)
+      return FALSE;
+
+   gchar* copy = g_strdup(value);
+   gchar* stripped = g_strstrip(copy);
+   gboolean enabled = FALSE;
+
+   if (*stripped)
+   {
+      if ((g_ascii_strcasecmp(stripped, "0") != 0) &&
+          (g_ascii_strcasecmp(stripped, "false") != 0) &&
+          (g_ascii_strcasecmp(stripped, "off") != 0) &&
+          (g_ascii_strcasecmp(stripped, "no") != 0))
+      {
+         enabled = TRUE;
+      }
+   }
+
+   g_free(copy);
+   return enabled;
+}
+
+const gchar* NiceComponentStateToString(guint state)
+{
+   switch (state)
+   {
+   case NICE_COMPONENT_STATE_DISCONNECTED:
+      return "DISCONNECTED";
+   case NICE_COMPONENT_STATE_GATHERING:
+      return "GATHERING";
+   case NICE_COMPONENT_STATE_CONNECTING:
+      return "CONNECTING";
+   case NICE_COMPONENT_STATE_CONNECTED:
+      return "CONNECTED";
+   case NICE_COMPONENT_STATE_READY:
+      return "READY";
+   case NICE_COMPONENT_STATE_FAILED:
+      return "FAILED";
+   case NICE_COMPONENT_STATE_LAST:
+      return "LAST";
+   default:
+      break;
+   }
+   return "UNKNOWN";
+}
+}
+
+void CNiceChannel::EnsureDebugLoggingInitialized()
+{
+   if (g_once_init_enter(&s_DebugInitToken))
+   {
+      const gchar* value = g_getenv("LIBNICE_DEBUG");
+      if (!value)
+         value = g_getenv("POLEIS_LIBNICE_DEBUG");
+      if (!value)
+         value = g_getenv("POLEIS_DEBUG");
+
+      s_DebugLoggingEnabled = EnvValueEnablesDebug(value);
+      if (s_DebugLoggingEnabled)
+      {
+         const gchar* logged = value ? value : "(set)";
+         g_log("poleis-nice", G_LOG_LEVEL_MESSAGE,
+               "libnice debug logging enabled via environment value '%s'", logged);
+      }
+
+      g_once_init_leave(&s_DebugInitToken, 1);
+   }
+}
+
+gboolean CNiceChannel::IsDebugLoggingEnabled()
+{
+   EnsureDebugLoggingInitialized();
+   return s_DebugLoggingEnabled;
+}
+
+void CNiceChannel::DebugLog(const gchar* format, ...)
+{
+   if (!IsDebugLoggingEnabled())
+      return;
+
+   va_list args;
+   va_start(args, format);
+   gchar* message = g_strdup_vprintf(format, args);
+   va_end(args);
+
+   g_log("poleis-nice", G_LOG_LEVEL_MESSAGE, "%s", message);
+   g_free(message);
+}
 
 CNiceChannel::CNiceChannel(bool controlling):
 m_pAgent(NULL),
@@ -81,6 +177,10 @@ void CNiceChannel::open(const sockaddr* addr)
 {
    try
    {
+      EnsureDebugLoggingInitialized();
+      DebugLog("Opening libnice channel (controlling=%s)",
+               m_bControlling ? "true" : "false");
+
       g_mutex_lock(&m_CloseLock);
       m_bClosing = false;
       m_ActiveSends = 0;
@@ -101,12 +201,16 @@ void CNiceChannel::open(const sockaddr* addr)
       if (NULL == m_pAgent)
          throw CUDTException(3, 2, 0);
 
+      DebugLog("Created NiceAgent %p", static_cast<void*>(m_pAgent));
+
       g_object_set(G_OBJECT(m_pAgent), "controlling-mode", m_bControlling ? TRUE : FALSE, NULL);
 
       m_iStreamID = nice_agent_add_stream(m_pAgent, 1);
       if (0 == m_iStreamID)
          throw CUDTException(3, 2, 0);
       m_iComponentID = 1;
+
+      DebugLog("Added stream %u component %u", m_iStreamID, m_iComponentID);
 
       m_pRecvQueue = g_async_queue_new();
       if (NULL == m_pRecvQueue)
@@ -127,9 +231,13 @@ void CNiceChannel::open(const sockaddr* addr)
 
       if (!nice_agent_gather_candidates(m_pAgent, m_iStreamID))
          throw CUDTException(3, 1, 0);
+
+      DebugLog("Started candidate gathering for stream %u", m_iStreamID);
    }
    catch (CUDTException& e)
    {
+      DebugLog("Exception while opening libnice channel: %s",
+               e.getErrorMessage());
       close();
       throw;
    }
@@ -142,6 +250,9 @@ void CNiceChannel::open(UDPSOCKET udpsock)
 
 void CNiceChannel::close()
 {
+   if (IsDebugLoggingEnabled())
+      DebugLog("Closing libnice channel (agent=%p)", static_cast<void*>(m_pAgent));
+
    g_mutex_lock(&m_CloseLock);
    if (!m_bClosing)
       m_bClosing = true;
@@ -195,6 +306,9 @@ void CNiceChannel::close()
    m_bClosing = false;
    m_ActiveSends = 0;
    g_mutex_unlock(&m_CloseLock);
+
+   if (IsDebugLoggingEnabled())
+      DebugLog("Libnice channel closed");
 }
 
 int CNiceChannel::getSndBufSize()
@@ -313,6 +427,9 @@ int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
    {
       CNiceChannel* self = const_cast<CNiceChannel*>(this);
 
+      DebugLog("Scheduling send of %u bytes (stream=%u component=%u)",
+               send_size, m_iStreamID, m_iComponentID);
+
       bool failed = false;
       g_mutex_lock(&self->m_StateLock);
       failed = self->m_bFailed;
@@ -429,6 +546,8 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
       return -1;
    }
 
+   DebugLog("Received %d byte payload from libnice", size);
+
    packet.setHeader(reinterpret_cast<const uint32_t*>(arr->data));
    memcpy(packet.m_pcData, arr->data + CPacket::m_iPktHdrSize, size - CPacket::m_iPktHdrSize);
    g_byte_array_unref(arr);
@@ -533,9 +652,11 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
       fatal_error = true;
    }
 
-   if (reschedule && context)
-   {
-      request->ref();
+      if (reschedule && context)
+      {
+         DebugLog("Send request for %u bytes deferred to main context",
+                  request->size);
+         request->ref();
       g_main_context_invoke_full(context,
                                  G_PRIORITY_DEFAULT,
                                  &CNiceChannel::cb_send_dispatch,
@@ -563,6 +684,8 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
       channel->m_bFailed = true;
       g_cond_broadcast(&channel->m_StateCond);
       g_mutex_unlock(&channel->m_StateLock);
+
+      DebugLog("Send failed with fatal error; channel marked failed");
    }
 
    return G_SOURCE_REMOVE;
@@ -584,6 +707,9 @@ int CNiceChannel::getLocalCredentials(std::string& ufrag, std::string& pwd) cons
       pwd = lp;
       g_free(lp);
    }
+
+   DebugLog("Retrieved local ICE credentials (ufrag length=%zu, pwd length=%zu)",
+            ufrag.size(), pwd.size());
    return 0;
 }
 
@@ -601,11 +727,15 @@ int CNiceChannel::getLocalCandidates(std::vector<std::string>& candidates) const
       }
    }
    g_slist_free_full(list, (GDestroyNotify)nice_candidate_free);
+
+   DebugLog("Collected %zu local ICE candidates", candidates.size());
    return candidates.size();
 }
 
 int CNiceChannel::setRemoteCredentials(const std::string& ufrag, const std::string& pwd)
 {
+   DebugLog("Applying remote ICE credentials (ufrag length=%zu, pwd length=%zu)",
+            ufrag.size(), pwd.size());
    return nice_agent_set_remote_credentials(m_pAgent, m_iStreamID, ufrag.c_str(), pwd.c_str());
 }
 
@@ -625,6 +755,8 @@ int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates
    }
    int r = nice_agent_set_remote_candidates(m_pAgent, m_iStreamID, m_iComponentID, list);
    g_slist_free_full(list, (GDestroyNotify)nice_candidate_free);
+   DebugLog("Applied %zu remote ICE candidates (result=%d)",
+            candidates.size(), r);
    return r;
 }
 
@@ -633,6 +765,7 @@ void CNiceChannel::setControllingMode(bool controlling)
    m_bControlling = controlling;
    if (m_pAgent)
       g_object_set(G_OBJECT(m_pAgent), "controlling-mode", m_bControlling ? TRUE : FALSE, NULL);
+   DebugLog("Set controlling mode to %s", m_bControlling ? "true" : "false");
 }
 
 void CNiceChannel::waitForCandidates()
@@ -688,6 +821,7 @@ void CNiceChannel::cb_candidate_gathering_done(NiceAgent* agent, guint stream_id
    self->m_bGatheringDone = true;
    g_cond_broadcast(&self->m_StateCond);
    g_mutex_unlock(&self->m_StateLock);
+   DebugLog("Candidate gathering complete for stream %u", stream_id);
 }
 
 void CNiceChannel::cb_state_changed(NiceAgent* agent, guint stream_id,
@@ -707,6 +841,8 @@ void CNiceChannel::cb_state_changed(NiceAgent* agent, guint stream_id,
       g_cond_broadcast(&self->m_StateCond);
    }
    g_mutex_unlock(&self->m_StateLock);
+   DebugLog("Component %u state changed to %s", component_id,
+            NiceComponentStateToString(state));
 }
 
 gpointer CNiceChannel::cb_loop(gpointer data)

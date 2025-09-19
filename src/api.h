@@ -43,6 +43,7 @@ written by
 
 
 #include <map>
+#include <string>
 #include <vector>
 #include "udt.h"
 #include "packet.h"
@@ -294,6 +295,12 @@ private:
 private:
    CUDTUnited(const CUDTUnited&);
    CUDTUnited& operator=(const CUDTUnited&);
+
+private:
+   void ensureDebugLoggingInitialized();
+   void logDebug(const char* fmt, ...) const;
+   bool m_bDebugLoggingEnabled;
+   bool m_bDebugLoggingInitialized;
 };
 
 #endif
