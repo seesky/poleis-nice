@@ -50,10 +50,43 @@ written by
 #include <cstring>
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <cctype>
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
 #include "api.h"
 #include "core.h"
 
 using namespace std;
+
+namespace
+{
+std::string TrimWhitespace(const char* value)
+{
+   if (!value)
+      return std::string();
+
+   std::string result(value);
+   std::string::size_type first = result.find_first_not_of(" \t\n\r");
+   if (std::string::npos == first)
+      return std::string();
+   std::string::size_type last = result.find_last_not_of(" \t\n\r");
+   return result.substr(first, last - first + 1);
+}
+
+bool EnvValueEnablesDebug(const std::string& value)
+{
+   if (value.empty())
+      return false;
+
+   std::string lowered(value);
+   std::transform(lowered.begin(), lowered.end(), lowered.begin(),
+                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+   return !(lowered == "0" || lowered == "false" || lowered == "off" || lowered == "no");
+}
+}
 
 CUDTSocket::CUDTSocket():
 m_Status(INIT),
@@ -132,7 +165,9 @@ m_InitLock(),
 m_iInstanceCount(0),
 m_bGCStatus(false),
 m_GCThread(),
-m_ClosedSockets()
+m_ClosedSockets(),
+m_bDebugLoggingEnabled(false),
+m_bDebugLoggingInitialized(false)
 {
    // Socket ID MUST start from a random value
    srand((unsigned int)CTimer::getTime());
@@ -180,12 +215,69 @@ CUDTUnited::~CUDTUnited()
    delete m_pCache;
 }
 
+void CUDTUnited::ensureDebugLoggingInitialized()
+{
+   if (m_bDebugLoggingInitialized)
+      return;
+
+   const char* names[] = {"UDT_DEBUG", "POLEIS_UDT_DEBUG", "POLEIS_DEBUG"};
+   const char* chosen_name = NULL;
+   const char* chosen_value = NULL;
+
+   for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); ++i)
+   {
+      const char* value = std::getenv(names[i]);
+      if (value && *value)
+      {
+         chosen_name = names[i];
+         chosen_value = value;
+         break;
+      }
+   }
+
+   std::string trimmed = TrimWhitespace(chosen_value);
+   if (EnvValueEnablesDebug(trimmed))
+   {
+      m_bDebugLoggingEnabled = true;
+      const char* name = chosen_name ? chosen_name : "UDT_DEBUG";
+      std::fprintf(stderr, "[UDT] Debug logging enabled via %s=%s\n", name, trimmed.c_str());
+   }
+   else
+   {
+      m_bDebugLoggingEnabled = false;
+   }
+
+   m_bDebugLoggingInitialized = true;
+}
+
+void CUDTUnited::logDebug(const char* fmt, ...) const
+{
+   CUDTUnited* self = const_cast<CUDTUnited*>(this);
+   self->ensureDebugLoggingInitialized();
+   if (!m_bDebugLoggingEnabled)
+      return;
+
+   va_list args;
+   va_start(args, fmt);
+   std::fprintf(stderr, "[UDT] ");
+   std::vfprintf(stderr, fmt, args);
+   std::fprintf(stderr, "\n");
+   va_end(args);
+}
+
 int CUDTUnited::startup()
 {
    CGuard gcinit(m_InitLock);
 
+   ensureDebugLoggingInitialized();
+
    if (m_iInstanceCount++ > 0)
+   {
+      logDebug("startup called; library already initialized (count=%d)", m_iInstanceCount);
       return 0;
+   }
+
+   logDebug("startup initializing UDT core components");
 
    // Global initialization code
    #ifdef WIN32
@@ -216,6 +308,8 @@ int CUDTUnited::startup()
 
    m_bGCStatus = true;
 
+   logDebug("startup completed successfully");
+
    return 0;
 }
 
@@ -223,8 +317,13 @@ int CUDTUnited::cleanup()
 {
    CGuard gcinit(m_InitLock);
 
+   ensureDebugLoggingInitialized();
+
    if (--m_iInstanceCount > 0)
+   {
+      logDebug("cleanup postponed; outstanding instances remain (count=%d)", m_iInstanceCount);
       return 0;
+   }
 
    //destroy CTimer::EventLock
 
@@ -265,11 +364,14 @@ int CUDTUnited::cleanup()
       WSACleanup();
    #endif
 
+   logDebug("cleanup completed");
+
    return 0;
 }
 
 UDTSOCKET CUDTUnited::newSocket(int af, int type)
 {
+   logDebug("newSocket requested (af=%d type=%d)", af, type);
    if ((type != SOCK_STREAM) && (type != SOCK_DGRAM))
       throw CUDTException(5, 3, 0);
 
@@ -325,6 +427,7 @@ UDTSOCKET CUDTUnited::newSocket(int af, int type)
    if (NULL == ns)
       throw CUDTException(3, 2, 0);
 
+   logDebug("newSocket created descriptor %d", ns->m_SocketID);
    return ns->m_SocketID;
 }
 
@@ -514,6 +617,7 @@ UDTSTATUS CUDTUnited::getStatus(const UDTSOCKET u)
 
 int CUDTUnited::bind(const UDTSOCKET u, const sockaddr* name, int namelen)
 {
+   logDebug("bind starting on socket %d", u);
    CUDTSocket* s = locate(u);
    if (NULL == s)
       throw CUDTException(5, 4, 0);
@@ -543,11 +647,13 @@ int CUDTUnited::bind(const UDTSOCKET u, const sockaddr* name, int namelen)
    // copy address information of local node
    s->m_pUDT->m_pSndQueue->m_pChannel->getSockAddr(s->m_pSelfAddr);
 
+   logDebug("bind completed on socket %d", u);
    return 0;
 }
 
 int CUDTUnited::bind(UDTSOCKET u, UDPSOCKET udpsock)
 {
+   logDebug("bind2 starting on socket %d with UDP socket %d", u, static_cast<int>(udpsock));
    CUDTSocket* s = locate(u);
    if (NULL == s)
       throw CUDTException(5, 4, 0);
@@ -584,11 +690,14 @@ int CUDTUnited::bind(UDTSOCKET u, UDPSOCKET udpsock)
    // copy address information of local node
    s->m_pUDT->m_pSndQueue->m_pChannel->getSockAddr(s->m_pSelfAddr);
 
+   logDebug("bind2 completed on socket %d", u);
+
    return 0;
 }
 
 int CUDTUnited::listen(const UDTSOCKET u, int backlog)
 {
+   logDebug("listen requested on socket %d (backlog=%d)", u, backlog);
    CUDTSocket* s = locate(u);
    if (NULL == s)
       throw CUDTException(5, 4, 0);
@@ -628,11 +737,13 @@ int CUDTUnited::listen(const UDTSOCKET u, int backlog)
 
    s->m_Status = LISTENING;
 
+   logDebug("listen completed on socket %d", u);
    return 0;
 }
 
 UDTSOCKET CUDTUnited::accept(const UDTSOCKET listen, sockaddr* addr, int* addrlen)
 {
+   logDebug("accept requested on listener %d", listen);
    if ((NULL != addr) && (NULL == addrlen))
       throw CUDTException(5, 3, 0);
 
@@ -737,11 +848,13 @@ UDTSOCKET CUDTUnited::accept(const UDTSOCKET listen, sockaddr* addr, int* addrle
       memcpy(addr, locate(u)->m_pPeerAddr, *addrlen);
    }
 
+   logDebug("accept returning new socket %d", u);
    return u;
 }
 
 int CUDTUnited::connect(const UDTSOCKET u, const sockaddr* name, int namelen)
 {
+   logDebug("connect requested on socket %d", u);
    CUDTSocket* s = locate(u);
    if (NULL == s)
       throw CUDTException(5, 4, 0);
@@ -834,6 +947,7 @@ int CUDTUnited::connect(const UDTSOCKET u, const sockaddr* name, int namelen)
    }
 #endif
 
+   logDebug("connect initiated on socket %d", u);
    return 0;
 }
 
@@ -854,6 +968,7 @@ void CUDTUnited::connect_complete(const UDTSOCKET u)
 
 int CUDTUnited::close(const UDTSOCKET u)
 {
+   logDebug("close requested on socket %d", u);
    CUDTSocket* s = locate(u);
    if (NULL == s)
       throw CUDTException(5, 4, 0);
@@ -863,7 +978,10 @@ int CUDTUnited::close(const UDTSOCKET u)
    if (s->m_Status == LISTENING)
    {
       if (s->m_pUDT->m_bBroken)
+      {
+         logDebug("close: listener socket %d already broken", u);
          return 0;
+      }
 
       s->m_TimeStamp = CTimer::getTime();
       s->m_pUDT->m_bBroken = true;
@@ -877,6 +995,7 @@ int CUDTUnited::close(const UDTSOCKET u)
          SetEvent(s->m_AcceptCond);
       #endif
 
+      logDebug("close: listener socket %d cleanup signalled", u);
       return 0;
    }
 
@@ -903,6 +1022,7 @@ int CUDTUnited::close(const UDTSOCKET u)
 
    CTimer::triggerEvent();
 
+   logDebug("close completed on socket %d", u);
    return 0;
 }
 
@@ -1366,6 +1486,12 @@ void CUDTUnited::removeSocket(const UDTSOCKET u)
 
 void CUDTUnited::setError(CUDTException* e)
 {
+   if (e)
+   {
+      const char* message = e->getErrorMessage();
+      logDebug("Recorded UDT error: code=%d message=%s", e->getErrorCode(),
+               message ? message : "(null)");
+   }
    #ifndef WIN32
       delete (CUDTException*)pthread_getspecific(m_TLSError);
       pthread_setspecific(m_TLSError, e);

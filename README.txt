@@ -59,5 +59,18 @@ Read index.htm in ./doc. The documentation is in HTML format and requires your
 browser to support JavaScript.
 
 
+Debug logging
+-------------
+Set the `LIBNICE_DEBUG` environment variable to a non-empty value (for example,
+`export LIBNICE_DEBUG=1`) before starting an application to enable detailed
+libnice integration logs. The library also honors the fallback variables
+`POLEIS_LIBNICE_DEBUG` and `POLEIS_DEBUG` for the same purpose.
+
+To surface additional diagnostics from the UDT stack, set `UDT_DEBUG` (or the
+fallback variables `POLEIS_UDT_DEBUG` and `POLEIS_DEBUG`) to any value other
+than `0`, `false`, `off`, or `no`. When enabled, the library writes verbose
+status updates and error reports to standard error with a `[UDT]` prefix.
+
+
 Questions? please post to the UDT project forum:
 https://sourceforge.net/projects/udt/forums
