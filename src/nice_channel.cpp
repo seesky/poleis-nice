@@ -534,9 +534,15 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
          memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in6));
    }
 
-   GByteArray* arr = (GByteArray*)g_async_queue_pop(m_pRecvQueue);
+   const guint64 timeout_usec = G_USEC_PER_SEC / 100;
+   GByteArray* arr = NULL;
+   if (m_pRecvQueue)
+      arr = static_cast<GByteArray*>(g_async_queue_timeout_pop(m_pRecvQueue, timeout_usec));
    if (NULL == arr)
+   {
+      packet.setLength(-1);
       return -1;
+   }
 
    int size = arr->len;
    if (size < CPacket::m_iPktHdrSize)
