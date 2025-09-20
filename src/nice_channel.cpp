@@ -540,6 +540,11 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
       arr = static_cast<GByteArray*>(g_async_queue_timeout_pop(m_pRecvQueue, timeout_usec));
    if (NULL == arr)
    {
+#ifdef WIN32
+      WSASetLastError(WSAEWOULDBLOCK);
+#else
+      errno = EAGAIN;
+#endif
       packet.setLength(-1);
       return -1;
    }
