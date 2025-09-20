@@ -53,7 +53,9 @@ endif
 
 DIR = $(shell pwd)
 
-APP = appserver appclient sendfile recvfile test appniceserver appniceclient appgstserver appgstclient nice_channel_retry_test
+APP = appserver appclient sendfile recvfile test \
+      appniceserver appniceclient appgstserver appgstclient \
+      nice_channel_retry_test nice_channel_recv_test
 
 appgstserver.o: CXXFLAGS += $(GST_CFLAGS)
 appgstclient.o: CXXFLAGS += $(GST_CFLAGS)
@@ -82,6 +84,8 @@ appgstserver: appgstserver.o
 appgstclient: appgstclient.o
 	$(CXX) $^ -o $@ $(LIBS) $(GST_LIBS)
 nice_channel_retry_test: nice_channel_retry_test.o
+	$(CXX) $^ -o $@ $(LIBS)
+nice_channel_recv_test: nice_channel_recv_test.o
 	$(CXX) $^ -o $@ $(LIBS)
 
 clean:

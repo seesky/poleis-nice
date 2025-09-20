@@ -534,12 +534,31 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
          memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in6));
    }
 
+   CNiceChannel* self = const_cast<CNiceChannel*>(this);
+
    const guint64 timeout_usec = G_USEC_PER_SEC / 100;
    GByteArray* arr = NULL;
-   if (m_pRecvQueue)
-      arr = static_cast<GByteArray*>(g_async_queue_timeout_pop(m_pRecvQueue, timeout_usec));
+   GAsyncQueue* queue = m_pRecvQueue;
+   if (queue)
+      arr = static_cast<GByteArray*>(g_async_queue_timeout_pop(queue, timeout_usec));
    if (NULL == arr)
    {
+      bool closing = false;
+      g_mutex_lock(&self->m_CloseLock);
+      closing = self->m_bClosing;
+      g_mutex_unlock(&self->m_CloseLock);
+
+      if (closing || !self->m_pRecvQueue)
+      {
+#ifdef WIN32
+         WSASetLastError(WSAECONNRESET);
+#else
+         errno = EBADF;
+#endif
+         packet.setLength(-1);
+         return -1;
+      }
+
 #ifdef WIN32
       WSASetLastError(WSAEWOULDBLOCK);
 #else
