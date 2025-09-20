@@ -8,6 +8,8 @@ set(APP_SOURCES
     appniceclient.cpp
     appgstclient.cpp
     appgstserver.cpp
+    nice_channel_retry_test.cpp
+    nice_channel_recv_test.cpp
 )
 
 option(UDT_COPY_DLL "Copy udt.dll beside executables for dynamic linking" OFF)
