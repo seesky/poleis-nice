@@ -1,6 +1,8 @@
 #ifndef WIN32
 #include <unistd.h>
 #include <netinet/in.h>
+#include <pthread.h>
+
 #else
 #include <winsock2.h>
 #include <windows.h>
@@ -21,6 +23,61 @@ using namespace std;
 
 namespace
 {
+
+struct MonitorContext
+{
+   UDTSOCKET socket;
+   volatile bool *running;
+};
+
+#ifndef WIN32
+void *monitor(void *);
+bool startUDTMonitor(MonitorContext &ctx, pthread_t &thread)
+{
+   if (0 != pthread_create(&thread, NULL, monitor, &ctx))
+   {
+      cout << "Failed to create UDT monitor thread." << endl;
+      return false;
+   }
+
+   return true;
+}
+
+void stopUDTMonitor(volatile bool &running, bool started, pthread_t thread)
+{
+   running = false;
+
+   if (!started)
+      return;
+
+   pthread_join(thread, NULL);
+}
+#else
+DWORD WINAPI monitor(LPVOID);
+bool startUDTMonitor(MonitorContext &ctx, HANDLE &thread)
+{
+   thread = CreateThread(NULL, 0, monitor, &ctx, 0, NULL);
+   if (NULL == thread)
+   {
+      cout << "Failed to create UDT monitor thread." << endl;
+      return false;
+   }
+
+   return true;
+}
+
+void stopUDTMonitor(volatile bool &running, bool started, HANDLE thread)
+{
+   running = false;
+
+   if (!started)
+      return;
+
+   WaitForSingleObject(thread, INFINITE);
+   CloseHandle(thread);
+}
+#endif
+
 #ifdef USE_LIBNICE
 string encodeField(const string &value)
 {
@@ -150,6 +207,20 @@ int main(int argc, char *argv[])
 
    UDTSOCKET client = UDT::socket(AF_INET, SOCK_STREAM, 0);
 
+
+   volatile bool running = true;
+   MonitorContext monitor_ctx;
+   monitor_ctx.socket = client;
+   monitor_ctx.running = &running;
+
+#ifndef WIN32
+   pthread_t monitor_thread = 0;
+#else
+   HANDLE monitor_thread = NULL;
+#endif
+   bool monitor_started = false;
+
+
    sockaddr_in any;
    any.sin_family = AF_INET;
    any.sin_port = 0;
@@ -193,21 +264,47 @@ int main(int argc, char *argv[])
       return 1;
    }
 
+
+   monitor_started = startUDTMonitor(monitor_ctx, monitor_thread);
+
+   auto stop_monitor = [&]()
+   {
+#ifndef WIN32
+      stopUDTMonitor(running, monitor_started, monitor_thread);
+#else
+      stopUDTMonitor(running, monitor_started, monitor_thread);
+#endif
+      monitor_started = false;
+   };
+
    const int32_t name_len = static_cast<int32_t>(filename.size());
    if (!sendAll(client, reinterpret_cast<const char *>(&name_len), sizeof(name_len)))
    {
+      stop_monitor();
+
+   const int32_t name_len = static_cast<int32_t>(filename.size());
+   if (!sendAll(client, reinterpret_cast<const char *>(&name_len), sizeof(name_len)))
+   {
+
       UDT::close(client);
       return 1;
    }
 
    if (!sendAll(client, filename.data(), name_len))
    {
+
+      stop_monitor();
+
+
       UDT::close(client);
       return 1;
    }
 
    if (!sendAll(client, reinterpret_cast<const char *>(&filesize), sizeof(filesize)))
    {
+
+      stop_monitor();
+
       UDT::close(client);
       return 1;
    }
@@ -216,13 +313,65 @@ int main(int argc, char *argv[])
    if (UDT::ERROR == UDT::sendfile(client, ifs, offset, filesize))
    {
       cout << "sendfile: " << UDT::getlasterror().getErrorMessage() << endl;
+
+      stop_monitor();
+
       UDT::close(client);
       return 1;
    }
 
    cout << "File sent successfully." << endl;
 
+
+   stop_monitor();
+
+
    ifs.close();
    UDT::close(client);
    return 0;
 }
+
+
+namespace
+{
+#ifndef WIN32
+void *monitor(void *param)
+#else
+DWORD WINAPI monitor(LPVOID param)
+#endif
+{
+   MonitorContext *ctx = static_cast<MonitorContext *>(param);
+   UDTSOCKET u = ctx->socket;
+
+   UDT::TRACEINFO perf;
+
+   while (*(ctx->running))
+   {
+      if (UDT::ERROR == UDT::perfmon(u, &perf))
+      {
+         cout << "perfmon: " << UDT::getlasterror().getErrorMessage() << endl;
+         break;
+      }
+
+      cout << perf.mbpsSendRate << "\t\t"
+           << perf.msRTT << "\t"
+           << perf.pktCongestionWindow << "\t"
+           << perf.usPktSndPeriod << "\t\t\t"
+           << perf.pktRecvACK << "\t"
+           << perf.pktRecvNAK << endl;
+
+#ifndef WIN32
+      sleep(1);
+#else
+      Sleep(1000);
+#endif
+   }
+
+#ifndef WIN32
+   return NULL;
+#else
+   return 0;
+#endif
+}
+}
+
