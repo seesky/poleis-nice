@@ -715,6 +715,8 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
       g_cond_broadcast(&channel->m_StateCond);
       g_mutex_unlock(&channel->m_StateLock);
 
+      g_warning("Send failed for stream %u component %u; channel marked unusable",
+                channel->m_iStreamID, channel->m_iComponentID);
       DebugLog("Send failed with fatal error; channel marked failed");
    }
 
@@ -860,6 +862,7 @@ void CNiceChannel::cb_state_changed(NiceAgent* agent, guint stream_id,
 {
    CNiceChannel* self = (CNiceChannel*)data;
    g_mutex_lock(&self->m_StateLock);
+   bool entered_failed_state = false;
    if (state == NICE_COMPONENT_STATE_READY || state == NICE_COMPONENT_STATE_CONNECTED)
    {
       self->m_bConnected = true;
@@ -869,8 +872,14 @@ void CNiceChannel::cb_state_changed(NiceAgent* agent, guint stream_id,
    {
       self->m_bFailed = true;
       g_cond_broadcast(&self->m_StateCond);
+      entered_failed_state = true;
    }
    g_mutex_unlock(&self->m_StateLock);
+   if (entered_failed_state)
+   {
+      g_warning("Component %u state changed to %s", component_id,
+                NiceComponentStateToString(state));
+   }
    DebugLog("Component %u state changed to %s", component_id,
             NiceComponentStateToString(state));
 }
