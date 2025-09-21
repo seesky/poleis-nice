@@ -2423,12 +2423,6 @@ int CUDT::setICESTUNServer(UDTSOCKET u, const std::string& server, int port)
          if (udt->m_pSndQueue && udt->m_pSndQueue->m_pChannel)
             udt->m_pSndQueue->m_pChannel->setStunServer(udt->m_strStunServer, udt->m_iStunPort);
       }
-
-      if (udt->m_pSndQueue && udt->m_pSndQueue->m_pChannel)
-      {
-         if (!udt->m_pSndQueue->m_pChannel->restartCandidateGathering())
-            throw CUDTException(3, 1, 0);
-      }
       return 0;
    }
    catch (CUDTException e)
@@ -2476,11 +2470,7 @@ int CUDT::setICETURNServer(UDTSOCKET u, const std::string& server, int port,
          }
       }
 
-      if (udt->m_pSndQueue && udt->m_pSndQueue->m_pChannel)
-      {
-         if (!udt->m_pSndQueue->m_pChannel->restartCandidateGathering())
-            throw CUDTException(3, 1, 0);
-      }
+
       return 0;
    }
    catch (CUDTException e)

@@ -1052,29 +1052,6 @@ void CNiceChannel::clearTurnRelay()
    m_TurnType = NICE_RELAY_TYPE_TURN_UDP;
 }
 
-bool CNiceChannel::restartCandidateGathering()
-{
-   if (!m_pAgent || (m_iStreamID == 0))
-   {
-      DebugLog("Skipping candidate gathering restart (agent=%p stream=%u)",
-               static_cast<void*>(m_pAgent), m_iStreamID);
-      return true;
-   }
-
-   DebugLog("Restarting candidate gathering for stream %u", m_iStreamID);
-
-   g_mutex_lock(&m_StateLock);
-   m_bGatheringDone = false;
-   g_mutex_unlock(&m_StateLock);
-
-   if (!nice_agent_gather_candidates(m_pAgent, m_iStreamID))
-   {
-      DebugLog("Failed to restart candidate gathering for stream %u", m_iStreamID);
-      return false;
-   }
-
-   return true;
-}
 
 void CNiceChannel::setPortRange(guint min_port, guint max_port)
 {

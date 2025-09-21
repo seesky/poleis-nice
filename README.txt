@@ -53,11 +53,8 @@ sample `appniceclient` and `appniceserver` programs output these fields on a
 single line by concatenating length-prefixed strings (for example,
 `4:abcd10:passphrase...`). Copy the full line and provide the remote peer's line
 when prompted. Applications may configure optional STUN and TURN services via
-`UDT::setICESTUNServer()` and `UDT::setICETURNServer()` before or after
-requesting ICE information. Passing an empty server string disables the
-associated relay. If these setters are called after a channel has already been
-opened, the library automatically restarts candidate gathering so the updated
-configuration takes effect.
+`UDT::setICESTUNServer()` and `UDT::setICETURNServer()` prior to requesting ICE
+information. Passing an empty server string disables the associated relay.
 Call `UDT::setICEPortRange(min_port, max_port)` before binding or requesting ICE
 information to constrain the local UDP ports used for gathered candidates;
 specify `(0, 0)` to return to the default libnice behavior. The `appnice*` and
