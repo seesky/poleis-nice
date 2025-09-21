@@ -43,7 +43,7 @@ endforeach()
 
 if(NICE_FOUND)
   foreach(tgt udt udt_static)
-    target_include_directories(${tgt} PRIVATE ${NICE_INCLUDE_DIRS})
+    target_include_directories(${tgt} PUBLIC ${NICE_INCLUDE_DIRS})
     target_link_libraries(${tgt} PUBLIC ${NICE_LIBRARIES})
     target_compile_options(${tgt} PRIVATE ${NICE_CFLAGS_OTHER})
     target_compile_definitions(${tgt} PUBLIC USE_LIBNICE)
