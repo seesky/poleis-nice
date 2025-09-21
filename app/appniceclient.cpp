@@ -183,20 +183,9 @@ int main(int argc, char* argv[])
 #else
    HANDLE monitor_thread = NULL;
 #endif
-   bool monitor_started = false;
-
-   sockaddr_in any;
-   any.sin_family = AF_INET;
-   any.sin_port = 0;
-   any.sin_addr.s_addr = INADDR_ANY;
-   if (UDT::ERROR == UDT::bind(client, (sockaddr*)&any, sizeof(any)))
-   {
-      cout << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
-      return 0;
-   }
 
 #ifdef USE_LIBNICE
-   if (!stun_option.empty())
+if (!stun_option.empty())
    {
       std::string host;
       int port = 3478;
@@ -229,6 +218,54 @@ int main(int argc, char* argv[])
          return 0;
       }
    }
+#endif
+
+   bool monitor_started = false;
+
+   sockaddr_in any;
+   any.sin_family = AF_INET;
+   any.sin_port = 0;
+   any.sin_addr.s_addr = INADDR_ANY;
+   if (UDT::ERROR == UDT::bind(client, (sockaddr*)&any, sizeof(any)))
+   {
+      cout << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
+      return 0;
+   }
+
+#ifdef USE_LIBNICE
+   // if (!stun_option.empty())
+   // {
+   //    std::string host;
+   //    int port = 3478;
+   //    if (!ParseHostPortSpec(stun_option, host, port))
+   //    {
+   //       cout << "Invalid STUN server specification: " << stun_option << endl;
+   //       return 0;
+   //    }
+   //    if (UDT::ERROR == UDT::setICESTUNServer(client, host, port))
+   //    {
+   //       cout << "setICESTUNServer: " << UDT::getlasterror().getErrorMessage() << endl;
+   //       return 0;
+   //    }
+   // }
+
+   // if (!turn_option.empty())
+   // {
+   //    std::string server;
+   //    int port = 3478;
+   //    std::string username;
+   //    std::string password;
+   //    if (!ParseTurnSpec(turn_option, server, port, username, password))
+   //    {
+   //       cout << "Invalid TURN relay specification: " << turn_option << endl;
+   //       return 0;
+   //    }
+   //    if (UDT::ERROR == UDT::setICETURNServer(client, server, port, username, password))
+   //    {
+   //       cout << "setICETURNServer: " << UDT::getlasterror().getErrorMessage() << endl;
+   //       return 0;
+   //    }
+   // }
 
    string ufrag, pwd;
    vector<string> candidates;

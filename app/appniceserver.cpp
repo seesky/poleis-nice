@@ -140,18 +140,9 @@ int main(int argc, char* argv[])
 
    UDTSOCKET serv = UDT::socket(AF_INET, SOCK_STREAM, 0);
 
-   sockaddr_in any;
-   any.sin_family = AF_INET;
-   any.sin_port = 0;
-   any.sin_addr.s_addr = INADDR_ANY;
-   if (UDT::ERROR == UDT::bind(serv, (sockaddr*)&any, sizeof(any)))
-   {
-      cout << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
-      return 0;
-   }
-
 #ifdef USE_LIBNICE
-   if (!stun_option.empty())
+
+ if (!stun_option.empty())
    {
       std::string host;
       int port = 3478;
@@ -184,6 +175,52 @@ int main(int argc, char* argv[])
          return 0;
       }
    }
+#endif
+
+   sockaddr_in any;
+   any.sin_family = AF_INET;
+   any.sin_port = 0;
+   any.sin_addr.s_addr = INADDR_ANY;
+   if (UDT::ERROR == UDT::bind(serv, (sockaddr*)&any, sizeof(any)))
+   {
+      cout << "bind: " << UDT::getlasterror().getErrorMessage() << endl;
+      return 0;
+   }
+
+#ifdef USE_LIBNICE
+   // if (!stun_option.empty())
+   // {
+   //    std::string host;
+   //    int port = 3478;
+   //    if (!ParseHostPortSpec(stun_option, host, port))
+   //    {
+   //       cout << "Invalid STUN server specification: " << stun_option << endl;
+   //       return 0;
+   //    }
+   //    if (UDT::ERROR == UDT::setICESTUNServer(serv, host, port))
+   //    {
+   //       cout << "setICESTUNServer: " << UDT::getlasterror().getErrorMessage() << endl;
+   //       return 0;
+   //    }
+   // }
+
+   // if (!turn_option.empty())
+   // {
+   //    std::string server;
+   //    int port = 3478;
+   //    std::string username;
+   //    std::string password;
+   //    if (!ParseTurnSpec(turn_option, server, port, username, password))
+   //    {
+   //       cout << "Invalid TURN relay specification: " << turn_option << endl;
+   //       return 0;
+   //    }
+   //    if (UDT::ERROR == UDT::setICETURNServer(serv, server, port, username, password))
+   //    {
+   //       cout << "setICETURNServer: " << UDT::getlasterror().getErrorMessage() << endl;
+   //       return 0;
+   //    }
+   // }
 
    string ufrag, pwd;
    vector<string> candidates;
