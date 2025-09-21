@@ -59,7 +59,7 @@ typedef CNiceChannel CChannel;
 class CChannel;
 #endif
 
-class CPacket
+class UDT_API CPacket
 {
 #ifdef USE_LIBNICE
 friend CChannel;
