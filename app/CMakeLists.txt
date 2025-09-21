@@ -6,6 +6,8 @@ set(APP_SOURCES
     test.cpp
     appniceserver.cpp
     appniceclient.cpp
+    appnicefileserver.cpp
+    appnicefileclient.cpp
     appgstclient.cpp
     appgstserver.cpp
     nice_channel_retry_test.cpp
