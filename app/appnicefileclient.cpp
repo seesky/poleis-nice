@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <pthread.h>
+
 #else
 #include <winsock2.h>
 #include <windows.h>
@@ -22,6 +23,7 @@ using namespace std;
 
 namespace
 {
+
 struct MonitorContext
 {
    UDTSOCKET socket;
@@ -205,6 +207,7 @@ int main(int argc, char *argv[])
 
    UDTSOCKET client = UDT::socket(AF_INET, SOCK_STREAM, 0);
 
+
    volatile bool running = true;
    MonitorContext monitor_ctx;
    monitor_ctx.socket = client;
@@ -216,6 +219,7 @@ int main(int argc, char *argv[])
    HANDLE monitor_thread = NULL;
 #endif
    bool monitor_started = false;
+
 
    sockaddr_in any;
    any.sin_family = AF_INET;
@@ -260,6 +264,7 @@ int main(int argc, char *argv[])
       return 1;
    }
 
+
    monitor_started = startUDTMonitor(monitor_ctx, monitor_thread);
 
    auto stop_monitor = [&]()
@@ -276,20 +281,30 @@ int main(int argc, char *argv[])
    if (!sendAll(client, reinterpret_cast<const char *>(&name_len), sizeof(name_len)))
    {
       stop_monitor();
+
+   const int32_t name_len = static_cast<int32_t>(filename.size());
+   if (!sendAll(client, reinterpret_cast<const char *>(&name_len), sizeof(name_len)))
+   {
+
       UDT::close(client);
       return 1;
    }
 
    if (!sendAll(client, filename.data(), name_len))
    {
+
       stop_monitor();
+
+
       UDT::close(client);
       return 1;
    }
 
    if (!sendAll(client, reinterpret_cast<const char *>(&filesize), sizeof(filesize)))
    {
+
       stop_monitor();
+
       UDT::close(client);
       return 1;
    }
@@ -298,19 +313,24 @@ int main(int argc, char *argv[])
    if (UDT::ERROR == UDT::sendfile(client, ifs, offset, filesize))
    {
       cout << "sendfile: " << UDT::getlasterror().getErrorMessage() << endl;
+
       stop_monitor();
+
       UDT::close(client);
       return 1;
    }
 
    cout << "File sent successfully." << endl;
 
+
    stop_monitor();
+
 
    ifs.close();
    UDT::close(client);
    return 0;
 }
+
 
 namespace
 {
@@ -354,3 +374,4 @@ DWORD WINAPI monitor(LPVOID param)
 #endif
 }
 }
+
