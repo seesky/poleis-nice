@@ -12,6 +12,12 @@
 #include <winsock2.h>
 #endif
 
+#if defined(NICE_CHECK_VERSION) && NICE_CHECK_VERSION(0, 1, 18)
+#define POLEIS_NICE_HAS_STUN_SERVER_HELPER 0
+#else
+#define POLEIS_NICE_HAS_STUN_SERVER_HELPER 1
+#endif
+
 CNiceChannel::NiceAgentSendFunc CNiceChannel::s_SendFunc = nice_agent_send;
 gsize CNiceChannel::s_DebugInitToken = 0;
 gboolean CNiceChannel::s_DebugLoggingEnabled = FALSE;
@@ -236,8 +242,15 @@ void CNiceChannel::open(const sockaddr* addr)
       {
          guint port = m_StunPort ? m_StunPort : 3478;
          DebugLog("Configuring STUN server %s:%u", m_StunServer.c_str(), port);
+#if POLEIS_NICE_HAS_STUN_SERVER_HELPER
          if (!nice_agent_set_stun_server(m_pAgent, m_StunServer.c_str(), port))
             throw CUDTException(3, 1, 0);
+#else
+         g_object_set(G_OBJECT(m_pAgent),
+                      "stun-server", m_StunServer.c_str(),
+                      "stun-server-port", port,
+                      NULL);
+#endif
       }
 
       if (m_bHasTurnRelay)
@@ -895,7 +908,16 @@ void CNiceChannel::setStunServer(const std::string& server, guint port)
    m_StunPort = port ? port : 3478;
 
    if (m_pAgent)
+   {
+#if POLEIS_NICE_HAS_STUN_SERVER_HELPER
       nice_agent_set_stun_server(m_pAgent, m_StunServer.c_str(), m_StunPort);
+#else
+      g_object_set(G_OBJECT(m_pAgent),
+                   "stun-server", m_StunServer.c_str(),
+                   "stun-server-port", m_StunPort,
+                   NULL);
+#endif
+   }
 }
 
 void CNiceChannel::clearStunServer()
