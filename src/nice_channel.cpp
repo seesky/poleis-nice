@@ -20,8 +20,14 @@
 #else
 #define POLEIS_NICE_HAS_STUN_SERVER_HELPER 1
 #endif
+#if NICE_CHECK_VERSION(0, 1, 19)
+#define POLEIS_NICE_PORT_RANGE_RETURNS_GBOOLEAN 0
+#else
+#define POLEIS_NICE_PORT_RANGE_RETURNS_GBOOLEAN 1
+#endif
 #else
 #define POLEIS_NICE_HAS_STUN_SERVER_HELPER 1
+#define POLEIS_NICE_PORT_RANGE_RETURNS_GBOOLEAN 1
 #endif
 
 CNiceChannel::NiceAgentSendFunc CNiceChannel::s_SendFunc = nice_agent_send;
@@ -48,6 +54,7 @@ struct NiceAgentSetPortRangeInvoker
    }
 };
 
+#if POLEIS_NICE_PORT_RANGE_RETURNS_GBOOLEAN
 template <>
 struct NiceAgentSetPortRangeInvoker<gboolean>
 {
@@ -62,7 +69,7 @@ struct NiceAgentSetPortRangeInvoker<gboolean>
          throw CUDTException(3, 1, 0);
    }
 };
-
+#else
 template <>
 struct NiceAgentSetPortRangeInvoker<void>
 {
@@ -77,6 +84,7 @@ struct NiceAgentSetPortRangeInvoker<void>
       // Newer libnice releases return void, indicating the call cannot fail.
    }
 };
+#endif
 
 gboolean EnvValueEnablesDebug(const gchar* value)
 {
