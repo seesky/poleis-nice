@@ -52,7 +52,7 @@ written by
 #include <string>
 #include <vector>
 
-class CNiceChannel
+class UDT_API CNiceChannel
 {
 public:
    CNiceChannel(bool controlling = false);
