@@ -909,8 +909,7 @@ int CNiceChannel::getLocalCandidates(std::vector<std::string>& candidates) const
       sockaddr_storage storage;
       memset(&storage, 0, sizeof(storage));
 
-      if (!nice_address_copy_to_sockaddr(&c->addr, reinterpret_cast<sockaddr*>(&storage)))
-         continue;
+      nice_address_copy_to_sockaddr(&c->addr, reinterpret_cast<sockaddr*>(&storage));
 
       if (storage.ss_family != AF_INET)
          continue;
@@ -949,8 +948,8 @@ int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates
             sockaddr_storage storage;
             memset(&storage, 0, sizeof(storage));
 
-            if (!nice_address_copy_to_sockaddr(&c->addr, reinterpret_cast<sockaddr*>(&storage)) ||
-                storage.ss_family != AF_INET)
+            nice_address_copy_to_sockaddr(&c->addr, reinterpret_cast<sockaddr*>(&storage));
+            if (storage.ss_family != AF_INET)
             {
                ++filtered;
                nice_candidate_free(c);
