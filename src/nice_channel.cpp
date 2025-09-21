@@ -617,6 +617,7 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
    bool reschedule = false;
    bool completed = false;
    bool fatal_error = false;
+   const char* skip_reason = NULL;
    GMainContext* context = NULL;
 
    if (channel && request->tracked)
@@ -626,8 +627,9 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
       context = channel->m_pContext;
 
       const bool closing = channel->m_bClosing;
+      const bool failed = channel->m_bFailed;
 
-      if (!closing && channel->m_pAgent && !channel->m_bFailed && request->buffer)
+      if (!closing && !failed && channel->m_pAgent && request->buffer)
       {
          request->result = s_SendFunc(channel->m_pAgent,
                                       channel->m_iStreamID,
@@ -659,7 +661,28 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
       {
          completed = true;
          request->result = -1;
-         fatal_error = !closing;
+         if (closing)
+         {
+            skip_reason = "channel closing";
+         }
+         else if (failed)
+         {
+            skip_reason = "channel already failed/disconnected";
+         }
+         else if (!channel->m_pAgent)
+         {
+            skip_reason = "channel agent missing";
+            fatal_error = true;
+         }
+         else if (!request->buffer)
+         {
+            skip_reason = "send buffer missing";
+            fatal_error = true;
+         }
+         else
+         {
+            fatal_error = true;
+         }
       }
 
       if (completed && request->tracked)
@@ -680,6 +703,7 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
       request->result = -1;
       completed = true;
       fatal_error = true;
+      skip_reason = "send request lost channel reference";
    }
 
       if (reschedule && context)
@@ -707,6 +731,19 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
    }
 
    g_mutex_unlock(&request->mutex);
+
+   if (skip_reason)
+   {
+      if (channel)
+      {
+         DebugLog("Send request for stream %u component %u aborted: %s",
+                  channel->m_iStreamID, channel->m_iComponentID, skip_reason);
+      }
+      else
+      {
+         DebugLog("Send request aborted: %s", skip_reason);
+      }
+   }
 
    if (fatal_error && channel)
    {
@@ -862,26 +899,64 @@ void CNiceChannel::cb_state_changed(NiceAgent* agent, guint stream_id,
 {
    CNiceChannel* self = (CNiceChannel*)data;
    g_mutex_lock(&self->m_StateLock);
+   const bool was_connected = self->m_bConnected;
+   const bool now_connected = (state == NICE_COMPONENT_STATE_READY ||
+                               state == NICE_COMPONENT_STATE_CONNECTED);
+
    bool entered_failed_state = false;
-   if (state == NICE_COMPONENT_STATE_READY || state == NICE_COMPONENT_STATE_CONNECTED)
+   bool left_ready_state = false;
+   bool broadcast = false;
+
+   if (now_connected)
    {
-      self->m_bConnected = true;
-      g_cond_broadcast(&self->m_StateCond);
+      if (!self->m_bConnected)
+      {
+         self->m_bConnected = true;
+         broadcast = true;
+      }
    }
-   else if (state == NICE_COMPONENT_STATE_FAILED)
+   else
    {
-      self->m_bFailed = true;
-      g_cond_broadcast(&self->m_StateCond);
-      entered_failed_state = true;
+      if (self->m_bConnected)
+      {
+         self->m_bConnected = false;
+         left_ready_state = true;
+      }
+
+      if (state == NICE_COMPONENT_STATE_FAILED)
+      {
+         broadcast = true;
+         self->m_bFailed = true;
+         entered_failed_state = true;
+      }
+      else if (was_connected)
+      {
+         broadcast = true;
+         self->m_bFailed = true;
+      }
    }
+
+   if (broadcast)
+      g_cond_broadcast(&self->m_StateCond);
+
    g_mutex_unlock(&self->m_StateLock);
+
    if (entered_failed_state)
    {
-      g_warning("Component %u state changed to %s", component_id,
-                NiceComponentStateToString(state));
+      g_warning("Component %u state changed to %s; channel marked unusable",
+                component_id, NiceComponentStateToString(state));
    }
-   DebugLog("Component %u state changed to %s", component_id,
-            NiceComponentStateToString(state));
+   else if (left_ready_state)
+   {
+      g_warning("Component %u state changed to %s after being connected; "
+                "channel marked unusable",
+                component_id, NiceComponentStateToString(state));
+   }
+
+   DebugLog("Component %u state changed to %s%s", component_id,
+            NiceComponentStateToString(state),
+            (entered_failed_state || left_ready_state) ?
+               "; channel marked unusable" : "");
 }
 
 gpointer CNiceChannel::cb_loop(gpointer data)
