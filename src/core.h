@@ -112,6 +112,9 @@ public: //API
                          std::vector<std::string>& candidates);
    static int setICEInfo(UDTSOCKET u, const std::string& ufrag, const std::string& pwd,
                          const std::vector<std::string>& candidates);
+   static int setICESTUNServer(UDTSOCKET u, const std::string& server, int port);
+   static int setICETURNServer(UDTSOCKET u, const std::string& server, int port,
+                               const std::string& username, const std::string& password);
 #endif
 
 public: // internal API
@@ -332,6 +335,16 @@ private: // Status
    CHandShake m_ConnReq;			// connection request
    CHandShake m_ConnRes;			// connection response
    int64_t m_llLastReqTime;			// last time when a connection request is sent
+#ifdef USE_LIBNICE
+   bool m_bHasStunServer;
+   std::string m_strStunServer;
+   int m_iStunPort;
+   bool m_bHasTurnRelay;
+   std::string m_strTurnServer;
+   int m_iTurnPort;
+   std::string m_strTurnUsername;
+   std::string m_strTurnPassword;
+#endif
 
 private: // Sending related data
    CSndBuffer* m_pSndBuffer;                    // Sender buffer

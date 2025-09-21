@@ -1584,6 +1584,17 @@ void CUDTUnited::updateMux(CUDTSocket* s, const sockaddr* addr, const UDPSOCKET*
    m.m_pChannel = new CChannel(s->m_pUDT->m_iIPversion);
    m.m_pChannel->setSndBufSize(s->m_pUDT->m_iUDPSndBufSize);
    m.m_pChannel->setRcvBufSize(s->m_pUDT->m_iUDPRcvBufSize);
+#ifdef USE_LIBNICE
+   if (s->m_pUDT->m_bHasStunServer)
+      m.m_pChannel->setStunServer(s->m_pUDT->m_strStunServer, s->m_pUDT->m_iStunPort);
+   else
+      m.m_pChannel->clearStunServer();
+   if (s->m_pUDT->m_bHasTurnRelay)
+      m.m_pChannel->setTurnRelay(s->m_pUDT->m_strTurnServer, s->m_pUDT->m_iTurnPort,
+                                 s->m_pUDT->m_strTurnUsername, s->m_pUDT->m_strTurnPassword);
+   else
+      m.m_pChannel->clearTurnRelay();
+#endif
 
    try
    {
@@ -2385,6 +2396,90 @@ int CUDT::setICEInfo(UDTSOCKET u, const std::string& ufrag, const std::string& p
        return ERROR;
    }
 }
+
+int CUDT::setICESTUNServer(UDTSOCKET u, const std::string& server, int port)
+{
+   try
+   {
+      if (!server.empty() && ((port < 0) || (port > 65535)))
+         throw CUDTException(5, 3, 0);
+
+      CUDT* udt = s_UDTUnited.lookup(u);
+      if (server.empty())
+      {
+         udt->m_bHasStunServer = false;
+         udt->m_strStunServer.clear();
+         udt->m_iStunPort = 0;
+         if (udt->m_pSndQueue && udt->m_pSndQueue->m_pChannel)
+            udt->m_pSndQueue->m_pChannel->clearStunServer();
+      }
+      else
+      {
+         udt->m_bHasStunServer = true;
+         udt->m_strStunServer = server;
+         udt->m_iStunPort = (port > 0) ? port : 3478;
+         if (udt->m_pSndQueue && udt->m_pSndQueue->m_pChannel)
+            udt->m_pSndQueue->m_pChannel->setStunServer(udt->m_strStunServer, udt->m_iStunPort);
+      }
+      return 0;
+   }
+   catch (CUDTException e)
+   {
+      s_UDTUnited.setError(new CUDTException(e));
+      return ERROR;
+   }
+   catch (...)
+   {
+      s_UDTUnited.setError(new CUDTException(-1, 0, 0));
+      return ERROR;
+   }
+}
+
+int CUDT::setICETURNServer(UDTSOCKET u, const std::string& server, int port,
+                           const std::string& username, const std::string& password)
+{
+   try
+   {
+      if (!server.empty() && ((port < 0) || (port > 65535)))
+         throw CUDTException(5, 3, 0);
+
+      CUDT* udt = s_UDTUnited.lookup(u);
+      if (server.empty())
+      {
+         udt->m_bHasTurnRelay = false;
+         udt->m_strTurnServer.clear();
+         udt->m_iTurnPort = 0;
+         udt->m_strTurnUsername.clear();
+         udt->m_strTurnPassword.clear();
+         if (udt->m_pSndQueue && udt->m_pSndQueue->m_pChannel)
+            udt->m_pSndQueue->m_pChannel->clearTurnRelay();
+      }
+      else
+      {
+         udt->m_bHasTurnRelay = true;
+         udt->m_strTurnServer = server;
+         udt->m_iTurnPort = (port > 0) ? port : 3478;
+         udt->m_strTurnUsername = username;
+         udt->m_strTurnPassword = password;
+         if (udt->m_pSndQueue && udt->m_pSndQueue->m_pChannel)
+         {
+            udt->m_pSndQueue->m_pChannel->setTurnRelay(udt->m_strTurnServer, udt->m_iTurnPort,
+                                                       udt->m_strTurnUsername, udt->m_strTurnPassword);
+         }
+      }
+      return 0;
+   }
+   catch (CUDTException e)
+   {
+      s_UDTUnited.setError(new CUDTException(e));
+      return ERROR;
+   }
+   catch (...)
+   {
+      s_UDTUnited.setError(new CUDTException(-1, 0, 0));
+      return ERROR;
+   }
+}
 #endif
 
 
@@ -2630,6 +2725,17 @@ int setICEInfo(UDTSOCKET u, const std::string& ufrag, const std::string& pwd,
                const std::vector<std::string>& candidates)
 {
    return CUDT::setICEInfo(u, ufrag, pwd, candidates);
+}
+
+int setICESTUNServer(UDTSOCKET u, const std::string& server, int port)
+{
+   return CUDT::setICESTUNServer(u, server, port);
+}
+
+int setICETURNServer(UDTSOCKET u, const std::string& server, int port,
+                     const std::string& username, const std::string& password)
+{
+   return CUDT::setICETURNServer(u, server, port, username, password);
 }
 #endif
 

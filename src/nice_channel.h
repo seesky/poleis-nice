@@ -95,6 +95,14 @@ public:
    // Specify whether this agent is in controlling mode.
    void setControllingMode(bool controlling);
 
+   // Configure optional STUN/TURN services prior to opening the agent.
+   void setStunServer(const std::string& server, guint port);
+   void clearStunServer();
+   void setTurnRelay(const std::string& server, guint port,
+                     const std::string& username, const std::string& password,
+                     NiceRelayType type = NICE_RELAY_TYPE_TURN_UDP);
+   void clearTurnRelay();
+
 private:
    struct SendRequest
    {
@@ -186,6 +194,16 @@ private:
    mutable GCond  m_CloseCond;
    mutable bool   m_bClosing;
    mutable guint  m_ActiveSends;
+
+   bool           m_bHasStunServer;
+   std::string    m_StunServer;
+   guint          m_StunPort;
+   bool           m_bHasTurnRelay;
+   std::string    m_TurnServer;
+   guint          m_TurnPort;
+   std::string    m_TurnUsername;
+   std::string    m_TurnPassword;
+   NiceRelayType  m_TurnType;
 
    static NiceAgentSendFunc s_SendFunc;
    static gsize s_DebugInitToken;

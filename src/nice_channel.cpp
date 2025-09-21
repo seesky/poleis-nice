@@ -124,7 +124,12 @@ m_bFailed(false),
 m_bGatheringDone(false),
 m_bControlling(controlling),
 m_bClosing(false),
-m_ActiveSends(0)
+m_ActiveSends(0),
+m_bHasStunServer(false),
+m_StunPort(0),
+m_bHasTurnRelay(false),
+m_TurnPort(0),
+m_TurnType(NICE_RELAY_TYPE_TURN_UDP)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
@@ -149,7 +154,12 @@ m_bFailed(false),
 m_bGatheringDone(false),
 m_bControlling(controlling),
 m_bClosing(false),
-m_ActiveSends(0)
+m_ActiveSends(0),
+m_bHasStunServer(false),
+m_StunPort(0),
+m_bHasTurnRelay(false),
+m_TurnPort(0),
+m_TurnType(NICE_RELAY_TYPE_TURN_UDP)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
@@ -215,6 +225,26 @@ void CNiceChannel::open(const sockaddr* addr)
       m_pRecvQueue = g_async_queue_new();
       if (NULL == m_pRecvQueue)
          throw CUDTException(3, 2, 0);
+
+      if (m_bHasStunServer)
+      {
+         guint port = m_StunPort ? m_StunPort : 3478;
+         DebugLog("Configuring STUN server %s:%u", m_StunServer.c_str(), port);
+         if (!nice_agent_set_stun_server(m_pAgent, m_StunServer.c_str(), port))
+            throw CUDTException(3, 1, 0);
+      }
+
+      if (m_bHasTurnRelay)
+      {
+         guint port = m_TurnPort ? m_TurnPort : 3478;
+         DebugLog("Configuring TURN relay %s:%u (username=%s)",
+                  m_TurnServer.c_str(), port, m_TurnUsername.c_str());
+         if (!nice_agent_set_relay_info(m_pAgent, m_iStreamID, m_iComponentID,
+                                        m_TurnServer.c_str(), port,
+                                        m_TurnUsername.c_str(), m_TurnPassword.c_str(),
+                                        m_TurnType))
+            throw CUDTException(3, 1, 0);
+      }
 
       if (!nice_agent_attach_recv(m_pAgent, m_iStreamID, m_iComponentID,
                                   m_pContext, &CNiceChannel::cb_recv, this))
@@ -835,6 +865,64 @@ void CNiceChannel::setControllingMode(bool controlling)
    if (m_pAgent)
       g_object_set(G_OBJECT(m_pAgent), "controlling-mode", m_bControlling ? TRUE : FALSE, NULL);
    DebugLog("Set controlling mode to %s", m_bControlling ? "true" : "false");
+}
+
+void CNiceChannel::setStunServer(const std::string& server, guint port)
+{
+   if (server.empty())
+   {
+      clearStunServer();
+      return;
+   }
+
+   m_bHasStunServer = true;
+   m_StunServer = server;
+   m_StunPort = port ? port : 3478;
+
+   if (m_pAgent)
+      nice_agent_set_stun_server(m_pAgent, m_StunServer.c_str(), m_StunPort);
+}
+
+void CNiceChannel::clearStunServer()
+{
+   m_bHasStunServer = false;
+   m_StunServer.clear();
+   m_StunPort = 0;
+}
+
+void CNiceChannel::setTurnRelay(const std::string& server, guint port,
+                                const std::string& username, const std::string& password,
+                                NiceRelayType type)
+{
+   if (server.empty())
+   {
+      clearTurnRelay();
+      return;
+   }
+
+   m_bHasTurnRelay = true;
+   m_TurnServer = server;
+   m_TurnPort = port ? port : 3478;
+   m_TurnUsername = username;
+   m_TurnPassword = password;
+   m_TurnType = type;
+
+   if (m_pAgent && m_iStreamID != 0)
+   {
+      nice_agent_set_relay_info(m_pAgent, m_iStreamID, m_iComponentID,
+                                m_TurnServer.c_str(), m_TurnPort,
+                                m_TurnUsername.c_str(), m_TurnPassword.c_str(),
+                                m_TurnType);
+   }
+}
+
+void CNiceChannel::clearTurnRelay()
+{
+   m_bHasTurnRelay = false;
+   m_TurnServer.clear();
+   m_TurnPort = 0;
+   m_TurnUsername.clear();
+   m_TurnPassword.clear();
 }
 
 void CNiceChannel::waitForCandidates()

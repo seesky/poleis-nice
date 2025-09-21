@@ -359,6 +359,9 @@ UDT_API int getICEInfo(UDTSOCKET u, std::string& ufrag, std::string& pwd,
                        std::vector<std::string>& candidates);
 UDT_API int setICEInfo(UDTSOCKET u, const std::string& ufrag, const std::string& pwd,
                        const std::vector<std::string>& candidates);
+UDT_API int setICESTUNServer(UDTSOCKET u, const std::string& server, int port);
+UDT_API int setICETURNServer(UDTSOCKET u, const std::string& server, int port,
+                             const std::string& username, const std::string& password);
 #endif
 UDT_API UDTSTATUS getsockstate(UDTSOCKET u);
 
