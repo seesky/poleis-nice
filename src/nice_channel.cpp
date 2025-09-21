@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cerrno>
 #include <cstdarg>
+#include <type_traits>
 #ifndef WIN32
 #include <arpa/inet.h>
 #else
@@ -24,6 +25,54 @@ gboolean CNiceChannel::s_DebugLoggingEnabled = FALSE;
 
 namespace
 {
+using NiceAgentSetPortRangeReturnType =
+   decltype(nice_agent_set_port_range(static_cast<NiceAgent*>(NULL),
+                                      static_cast<guint>(0),
+                                      static_cast<guint>(0),
+                                      static_cast<guint>(0),
+                                      static_cast<guint>(0)));
+
+template <typename ReturnType>
+struct NiceAgentSetPortRangeInvoker
+{
+   static void Invoke(NiceAgent*, guint, guint, guint, guint)
+   {
+      static_assert(std::is_same<ReturnType, gboolean>::value ||
+                    std::is_same<ReturnType, void>::value,
+                    "Unsupported nice_agent_set_port_range signature");
+   }
+};
+
+template <>
+struct NiceAgentSetPortRangeInvoker<gboolean>
+{
+   static void Invoke(NiceAgent* agent,
+                      guint stream_id,
+                      guint component_id,
+                      guint port_min,
+                      guint port_max)
+   {
+      if (!nice_agent_set_port_range(agent, stream_id, component_id,
+                                     port_min, port_max))
+         throw CUDTException(3, 1, 0);
+   }
+};
+
+template <>
+struct NiceAgentSetPortRangeInvoker<void>
+{
+   static void Invoke(NiceAgent* agent,
+                      guint stream_id,
+                      guint component_id,
+                      guint port_min,
+                      guint port_max)
+   {
+      nice_agent_set_port_range(agent, stream_id, component_id,
+                                port_min, port_max);
+      // Newer libnice releases return void, indicating the call cannot fail.
+   }
+};
+
 gboolean EnvValueEnablesDebug(const gchar* value)
 {
    if (!value)
@@ -269,9 +318,12 @@ void CNiceChannel::open(const sockaddr* addr)
       {
          DebugLog("Restricting component %u to port range %u-%u",
                   m_iComponentID, m_PortRangeMin, m_PortRangeMax);
-         if (!nice_agent_set_port_range(m_pAgent, m_iStreamID, m_iComponentID,
-                                        m_PortRangeMin, m_PortRangeMax))
-            throw CUDTException(3, 1, 0);
+         NiceAgentSetPortRangeInvoker<NiceAgentSetPortRangeReturnType>::Invoke(
+            m_pAgent,
+            m_iStreamID,
+            m_iComponentID,
+            m_PortRangeMin,
+            m_PortRangeMax);
       }
 
       if (!nice_agent_attach_recv(m_pAgent, m_iStreamID, m_iComponentID,
