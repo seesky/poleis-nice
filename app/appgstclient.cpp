@@ -487,10 +487,31 @@ bool run_pipeline(PipelineContext& ctx)
 
 int main(int argc, char* argv[])
 {
-   const char* usage = "usage: appgstclient [--verbose|--quiet]";
+   const char* usage =
+      "usage: appgstclient [--verbose|--quiet]"
+#ifdef USE_LIBNICE
+      " [--stun=HOST[:PORT]] [--turn=HOST[:PORT],USERNAME,PASSWORD]"
+#endif
+      "";
+#ifdef USE_LIBNICE
+   std::string stun_option;
+   std::string turn_option;
+#endif
    for (int i = 1; i < argc; ++i)
    {
       std::string arg(argv[i]);
+#ifdef USE_LIBNICE
+      if (arg.rfind("--stun=", 0) == 0)
+      {
+         stun_option = arg.substr(7);
+         continue;
+      }
+      if (arg.rfind("--turn=", 0) == 0)
+      {
+         turn_option = arg.substr(7);
+         continue;
+      }
+#endif
       if ((arg == "--verbose") || (arg == "-v") || (arg == "--quiet") || (arg == "-q"))
       {
          // Retained for compatibility
@@ -524,6 +545,40 @@ int main(int argc, char* argv[])
    }
 
 #ifdef USE_LIBNICE
+   if (!stun_option.empty())
+   {
+      std::string host;
+      int port = 3478;
+      if (!ParseHostPortSpec(stun_option, host, port))
+      {
+         std::cout << "Invalid STUN server specification: " << stun_option << std::endl;
+         return 0;
+      }
+      if (UDT::ERROR == UDT::setICESTUNServer(client, host, port))
+      {
+         std::cout << "setICESTUNServer: " << UDT::getlasterror().getErrorMessage() << std::endl;
+         return 0;
+      }
+   }
+
+   if (!turn_option.empty())
+   {
+      std::string server;
+      int port = 3478;
+      std::string username;
+      std::string password;
+      if (!ParseTurnSpec(turn_option, server, port, username, password))
+      {
+         std::cout << "Invalid TURN relay specification: " << turn_option << std::endl;
+         return 0;
+      }
+      if (UDT::ERROR == UDT::setICETURNServer(client, server, port, username, password))
+      {
+         std::cout << "setICETURNServer: " << UDT::getlasterror().getErrorMessage() << std::endl;
+         return 0;
+      }
+   }
+
    std::string ufrag, pwd;
    std::vector<std::string> candidates;
    if (UDT::ERROR == UDT::getICEInfo(client, ufrag, pwd, candidates))

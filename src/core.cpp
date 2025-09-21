@@ -121,6 +121,13 @@ CUDT::CUDT()
    m_pCC = NULL;
    m_pCache = NULL;
 
+#ifdef USE_LIBNICE
+   m_bHasStunServer = false;
+   m_iStunPort = 0;
+   m_bHasTurnRelay = false;
+   m_iTurnPort = 0;
+#endif
+
    // Initial status
    m_bOpened = false;
    m_bListening = false;
@@ -173,6 +180,17 @@ CUDT::CUDT(const CUDT& ancestor)
    m_pCCFactory = ancestor.m_pCCFactory->clone();
    m_pCC = NULL;
    m_pCache = ancestor.m_pCache;
+
+#ifdef USE_LIBNICE
+   m_bHasStunServer = ancestor.m_bHasStunServer;
+   m_strStunServer = ancestor.m_strStunServer;
+   m_iStunPort = ancestor.m_iStunPort;
+   m_bHasTurnRelay = ancestor.m_bHasTurnRelay;
+   m_strTurnServer = ancestor.m_strTurnServer;
+   m_iTurnPort = ancestor.m_iTurnPort;
+   m_strTurnUsername = ancestor.m_strTurnUsername;
+   m_strTurnPassword = ancestor.m_strTurnPassword;
+#endif
 
    // Initial status
    m_bOpened = false;

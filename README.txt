@@ -52,7 +52,12 @@ connectivity checks, supply the remote values with `UDT::setICEInfo()`. The
 sample `appniceclient` and `appniceserver` programs output these fields on a
 single line by concatenating length-prefixed strings (for example,
 `4:abcd10:passphrase...`). Copy the full line and provide the remote peer's line
-when prompted.
+when prompted. Applications may configure optional STUN and TURN services via
+`UDT::setICESTUNServer()` and `UDT::setICETURNServer()` prior to requesting ICE
+information. Passing an empty server string disables the associated relay.
+The `appnice*` and `appgst*` samples expose these hooks through the
+`--stun=HOST[:PORT]` and `--turn=HOST[:PORT],USERNAME,PASSWORD` command-line
+options so you can test against public STUN/TURN infrastructure if desired.
 
 To use UDT in your application:
 Read index.htm in ./doc. The documentation is in HTML format and requires your

@@ -173,14 +173,56 @@ bool sendAll(UDTSOCKET socket, const char *data, int len)
 
 int main(int argc, char *argv[])
 {
-   const char *usage = "usage: appnicefileclient <file_to_send>";
-   if (argc != 2)
+   const char *usage =
+      "usage: appnicefileclient"
+#ifdef USE_LIBNICE
+      " [--stun=HOST[:PORT]] [--turn=HOST[:PORT],USERNAME,PASSWORD]"
+#endif
+      " <file_to_send>";
+
+#ifdef USE_LIBNICE
+   std::string stun_option;
+   std::string turn_option;
+#endif
+   std::string filepath;
+
+   for (int i = 1; i < argc; ++i)
+   {
+      std::string arg(argv[i]);
+#ifdef USE_LIBNICE
+      if (arg.rfind("--stun=", 0) == 0)
+      {
+         stun_option = arg.substr(7);
+         continue;
+      }
+      if (arg.rfind("--turn=", 0) == 0)
+      {
+         turn_option = arg.substr(7);
+         continue;
+      }
+#endif
+      if ((arg == "--help") || (arg == "-h"))
+      {
+         cout << usage << endl;
+         return 0;
+      }
+      if (filepath.empty())
+      {
+         filepath = arg;
+      }
+      else
+      {
+         cout << usage << endl;
+         return 0;
+      }
+   }
+
+   if (filepath.empty())
    {
       cout << usage << endl;
       return 0;
    }
 
-   const string filepath = argv[1];
    string filename = filepath;
    size_t slash = filepath.find_last_of("/\\");
    if (slash != string::npos && slash + 1 < filepath.size())
@@ -232,6 +274,40 @@ int main(int argc, char *argv[])
    }
 
 #ifdef USE_LIBNICE
+   if (!stun_option.empty())
+   {
+      std::string host;
+      int port = 3478;
+      if (!ParseHostPortSpec(stun_option, host, port))
+      {
+         cout << "Invalid STUN server specification: " << stun_option << endl;
+         return 1;
+      }
+      if (UDT::ERROR == UDT::setICESTUNServer(client, host, port))
+      {
+         cout << "setICESTUNServer: " << UDT::getlasterror().getErrorMessage() << endl;
+         return 1;
+      }
+   }
+
+   if (!turn_option.empty())
+   {
+      std::string server;
+      int port = 3478;
+      std::string username;
+      std::string password;
+      if (!ParseTurnSpec(turn_option, server, port, username, password))
+      {
+         cout << "Invalid TURN relay specification: " << turn_option << endl;
+         return 1;
+      }
+      if (UDT::ERROR == UDT::setICETURNServer(client, server, port, username, password))
+      {
+         cout << "setICETURNServer: " << UDT::getlasterror().getErrorMessage() << endl;
+         return 1;
+      }
+   }
+
    string ufrag, pwd;
    vector<string> candidates;
    if (UDT::ERROR == UDT::getICEInfo(client, ufrag, pwd, candidates))

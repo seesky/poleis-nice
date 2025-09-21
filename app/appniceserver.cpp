@@ -95,10 +95,31 @@ bool parseICEInfo(const string &line, string &ufrag, string &pwd, vector<string>
 
 int main(int argc, char* argv[])
 {
-   const char* usage = "usage: appniceserver [--verbose|--quiet]";
+   const char* usage =
+      "usage: appniceserver [--verbose|--quiet]"
+#ifdef USE_LIBNICE
+      " [--stun=HOST[:PORT]] [--turn=HOST[:PORT],USERNAME,PASSWORD]"
+#endif
+      "";
+#ifdef USE_LIBNICE
+   std::string stun_option;
+   std::string turn_option;
+#endif
    for (int i = 1; i < argc; ++i)
    {
       string arg(argv[i]);
+#ifdef USE_LIBNICE
+      if (arg.rfind("--stun=", 0) == 0)
+      {
+         stun_option = arg.substr(7);
+         continue;
+      }
+      if (arg.rfind("--turn=", 0) == 0)
+      {
+         turn_option = arg.substr(7);
+         continue;
+      }
+#endif
       if ((arg == "--verbose") || (arg == "-v") || (arg == "--quiet") || (arg == "-q"))
       {
          // Legacy options retained for compatibility but no longer change behavior.
@@ -130,6 +151,40 @@ int main(int argc, char* argv[])
    }
 
 #ifdef USE_LIBNICE
+   if (!stun_option.empty())
+   {
+      std::string host;
+      int port = 3478;
+      if (!ParseHostPortSpec(stun_option, host, port))
+      {
+         cout << "Invalid STUN server specification: " << stun_option << endl;
+         return 0;
+      }
+      if (UDT::ERROR == UDT::setICESTUNServer(serv, host, port))
+      {
+         cout << "setICESTUNServer: " << UDT::getlasterror().getErrorMessage() << endl;
+         return 0;
+      }
+   }
+
+   if (!turn_option.empty())
+   {
+      std::string server;
+      int port = 3478;
+      std::string username;
+      std::string password;
+      if (!ParseTurnSpec(turn_option, server, port, username, password))
+      {
+         cout << "Invalid TURN relay specification: " << turn_option << endl;
+         return 0;
+      }
+      if (UDT::ERROR == UDT::setICETURNServer(serv, server, port, username, password))
+      {
+         cout << "setICETURNServer: " << UDT::getlasterror().getErrorMessage() << endl;
+         return 0;
+      }
+   }
+
    string ufrag, pwd;
    vector<string> candidates;
    if (UDT::ERROR == UDT::getICEInfo(serv, ufrag, pwd, candidates))
