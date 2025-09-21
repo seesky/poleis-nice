@@ -126,6 +126,9 @@ CUDT::CUDT()
    m_iStunPort = 0;
    m_bHasTurnRelay = false;
    m_iTurnPort = 0;
+   m_bHasPortRange = false;
+   m_iPortRangeMin = 0;
+   m_iPortRangeMax = 0;
 #endif
 
    // Initial status
@@ -190,6 +193,9 @@ CUDT::CUDT(const CUDT& ancestor)
    m_iTurnPort = ancestor.m_iTurnPort;
    m_strTurnUsername = ancestor.m_strTurnUsername;
    m_strTurnPassword = ancestor.m_strTurnPassword;
+   m_bHasPortRange = ancestor.m_bHasPortRange;
+   m_iPortRangeMin = ancestor.m_iPortRangeMin;
+   m_iPortRangeMax = ancestor.m_iPortRangeMax;
 #endif
 
    // Initial status

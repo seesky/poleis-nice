@@ -1594,6 +1594,8 @@ void CUDTUnited::updateMux(CUDTSocket* s, const sockaddr* addr, const UDPSOCKET*
                                  s->m_pUDT->m_strTurnUsername, s->m_pUDT->m_strTurnPassword);
    else
       m.m_pChannel->clearTurnRelay();
+   if (s->m_pUDT->m_bHasPortRange)
+      m.m_pChannel->setPortRange(s->m_pUDT->m_iPortRangeMin, s->m_pUDT->m_iPortRangeMax);
 #endif
 
    try
@@ -2480,6 +2482,52 @@ int CUDT::setICETURNServer(UDTSOCKET u, const std::string& server, int port,
       return ERROR;
    }
 }
+
+int CUDT::setICEPortRange(UDTSOCKET u, int min_port, int max_port)
+{
+   try
+   {
+      if ((min_port < 0) || (min_port > 65535) ||
+          (max_port < 0) || (max_port > 65535))
+         throw CUDTException(5, 3, 0);
+
+      if ((min_port == 0) != (max_port == 0))
+         throw CUDTException(5, 3, 0);
+
+      if ((min_port > 0) && (min_port > max_port))
+         throw CUDTException(5, 3, 0);
+
+      CUDT* udt = s_UDTUnited.lookup(u);
+
+      if (udt->m_pSndQueue && udt->m_pSndQueue->m_pChannel)
+         throw CUDTException(5, 3, 0);
+
+      if (min_port == 0)
+      {
+         udt->m_bHasPortRange = false;
+         udt->m_iPortRangeMin = 0;
+         udt->m_iPortRangeMax = 0;
+      }
+      else
+      {
+         udt->m_bHasPortRange = true;
+         udt->m_iPortRangeMin = min_port;
+         udt->m_iPortRangeMax = max_port;
+      }
+
+      return 0;
+   }
+   catch (CUDTException e)
+   {
+      s_UDTUnited.setError(new CUDTException(e));
+      return ERROR;
+   }
+   catch (...)
+   {
+      s_UDTUnited.setError(new CUDTException(-1, 0, 0));
+      return ERROR;
+   }
+}
 #endif
 
 
@@ -2733,9 +2781,14 @@ int setICESTUNServer(UDTSOCKET u, const std::string& server, int port)
 }
 
 int setICETURNServer(UDTSOCKET u, const std::string& server, int port,
-                     const std::string& username, const std::string& password)
+                      const std::string& username, const std::string& password)
 {
    return CUDT::setICETURNServer(u, server, port, username, password);
+}
+
+int setICEPortRange(UDTSOCKET u, int min_port, int max_port)
+{
+   return CUDT::setICEPortRange(u, min_port, max_port);
 }
 #endif
 
