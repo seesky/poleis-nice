@@ -6,7 +6,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": [],
+            "args": [
+                "--stun=103.140.126.177:3478"
+            ],
             "cwd": "${workspaceFolder}",
             "environment": [
                 { "name": "G_MESSAGES_DEBUG", "value": "libnice" },

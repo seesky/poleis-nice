@@ -993,14 +993,11 @@ void CNiceChannel::setStunServer(const std::string& server, guint port)
 
    if (m_pAgent)
    {
-#if POLEIS_NICE_HAS_STUN_SERVER_HELPER
-      nice_agent_set_stun_server(m_pAgent, m_StunServer.c_str(), m_StunPort);
-#else
       g_object_set(G_OBJECT(m_pAgent),
                    "stun-server", m_StunServer.c_str(),
                    "stun-server-port", m_StunPort,
                    NULL);
-#endif
+
    }
 }
 
@@ -1012,14 +1009,10 @@ void CNiceChannel::clearStunServer()
 
    if (m_pAgent)
    {
-#if POLEIS_NICE_HAS_STUN_SERVER_HELPER
-      nice_agent_set_stun_server(m_pAgent, NULL, 0);
-#else
       g_object_set(G_OBJECT(m_pAgent),
                    "stun-server", NULL,
                    "stun-server-port", 0,
                    NULL);
-#endif
    }
 }
 
