@@ -993,10 +993,14 @@ void CNiceChannel::setStunServer(const std::string& server, guint port)
 
    if (m_pAgent)
    {
+#if POLEIS_NICE_HAS_STUN_SERVER_HELPER
+      nice_agent_set_stun_server(m_pAgent, m_StunServer.c_str(), m_StunPort);
+#else
       g_object_set(G_OBJECT(m_pAgent),
                    "stun-server", m_StunServer.c_str(),
                    "stun-server-port", m_StunPort,
                    NULL);
+#endif
    }
 }
 
@@ -1005,6 +1009,18 @@ void CNiceChannel::clearStunServer()
    m_bHasStunServer = false;
    m_StunServer.clear();
    m_StunPort = 0;
+
+   if (m_pAgent)
+   {
+#if POLEIS_NICE_HAS_STUN_SERVER_HELPER
+      nice_agent_set_stun_server(m_pAgent, NULL, 0);
+#else
+      g_object_set(G_OBJECT(m_pAgent),
+                   "stun-server", NULL,
+                   "stun-server-port", 0,
+                   NULL);
+#endif
+   }
 }
 
 void CNiceChannel::setTurnRelay(const std::string& server, guint port,
@@ -1041,6 +1057,30 @@ void CNiceChannel::clearTurnRelay()
    m_TurnUsername.clear();
    m_TurnPassword.clear();
    m_TurnType = NICE_RELAY_TYPE_TURN_UDP;
+}
+
+bool CNiceChannel::restartCandidateGathering()
+{
+   if (!m_pAgent || (m_iStreamID == 0))
+   {
+      DebugLog("Skipping candidate gathering restart (agent=%p stream=%u)",
+               static_cast<void*>(m_pAgent), m_iStreamID);
+      return true;
+   }
+
+   DebugLog("Restarting candidate gathering for stream %u", m_iStreamID);
+
+   g_mutex_lock(&m_StateLock);
+   m_bGatheringDone = false;
+   g_mutex_unlock(&m_StateLock);
+
+   if (!nice_agent_gather_candidates(m_pAgent, m_iStreamID))
+   {
+      DebugLog("Failed to restart candidate gathering for stream %u", m_iStreamID);
+      return false;
+   }
+
+   return true;
 }
 
 void CNiceChannel::setPortRange(guint min_port, guint max_port)
