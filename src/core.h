@@ -115,6 +115,7 @@ public: //API
    static int setICESTUNServer(UDTSOCKET u, const std::string& server, int port);
    static int setICETURNServer(UDTSOCKET u, const std::string& server, int port,
                                const std::string& username, const std::string& password);
+   static int setICEPortRange(UDTSOCKET u, int min_port, int max_port);
 #endif
 
 public: // internal API
@@ -344,6 +345,9 @@ private: // Status
    int m_iTurnPort;
    std::string m_strTurnUsername;
    std::string m_strTurnPassword;
+   bool m_bHasPortRange;
+   int m_iPortRangeMin;
+   int m_iPortRangeMax;
 #endif
 
 private: // Sending related data

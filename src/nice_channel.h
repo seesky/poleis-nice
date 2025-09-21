@@ -103,6 +103,10 @@ public:
                      NiceRelayType type = NICE_RELAY_TYPE_TURN_UDP);
    void clearTurnRelay();
 
+   // Restrict local candidates to the provided inclusive port range.
+   // Specify (0, 0) to clear the restriction and use libnice defaults.
+   void setPortRange(guint min_port, guint max_port);
+
 private:
    struct SendRequest
    {
@@ -204,6 +208,9 @@ private:
    std::string    m_TurnUsername;
    std::string    m_TurnPassword;
    NiceRelayType  m_TurnType;
+   bool           m_bHasPortRange;
+   guint          m_PortRangeMin;
+   guint          m_PortRangeMax;
 
    static NiceAgentSendFunc s_SendFunc;
    static gsize s_DebugInitToken;

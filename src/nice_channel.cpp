@@ -129,7 +129,10 @@ m_bHasStunServer(false),
 m_StunPort(0),
 m_bHasTurnRelay(false),
 m_TurnPort(0),
-m_TurnType(NICE_RELAY_TYPE_TURN_UDP)
+m_TurnType(NICE_RELAY_TYPE_TURN_UDP),
+m_bHasPortRange(false),
+m_PortRangeMin(0),
+m_PortRangeMax(0)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
@@ -159,7 +162,10 @@ m_bHasStunServer(false),
 m_StunPort(0),
 m_bHasTurnRelay(false),
 m_TurnPort(0),
-m_TurnType(NICE_RELAY_TYPE_TURN_UDP)
+m_TurnType(NICE_RELAY_TYPE_TURN_UDP),
+m_bHasPortRange(false),
+m_PortRangeMin(0),
+m_PortRangeMax(0)
 {
    g_mutex_init(&m_StateLock);
    g_cond_init(&m_StateCond);
@@ -243,6 +249,15 @@ void CNiceChannel::open(const sockaddr* addr)
                                         m_TurnServer.c_str(), port,
                                         m_TurnUsername.c_str(), m_TurnPassword.c_str(),
                                         m_TurnType))
+            throw CUDTException(3, 1, 0);
+      }
+
+      if (m_bHasPortRange)
+      {
+         DebugLog("Restricting component %u to port range %u-%u",
+                  m_iComponentID, m_PortRangeMin, m_PortRangeMax);
+         if (!nice_agent_set_port_range(m_pAgent, m_iStreamID, m_iComponentID,
+                                        m_PortRangeMin, m_PortRangeMax))
             throw CUDTException(3, 1, 0);
       }
 
@@ -923,6 +938,23 @@ void CNiceChannel::clearTurnRelay()
    m_TurnPort = 0;
    m_TurnUsername.clear();
    m_TurnPassword.clear();
+   m_TurnType = NICE_RELAY_TYPE_TURN_UDP;
+}
+
+void CNiceChannel::setPortRange(guint min_port, guint max_port)
+{
+   if (min_port > 0 && max_port > 0 && min_port <= max_port)
+   {
+      m_bHasPortRange = true;
+      m_PortRangeMin = min_port;
+      m_PortRangeMax = max_port;
+   }
+   else
+   {
+      m_bHasPortRange = false;
+      m_PortRangeMin = 0;
+      m_PortRangeMax = 0;
+   }
 }
 
 void CNiceChannel::waitForCandidates()
