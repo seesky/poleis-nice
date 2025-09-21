@@ -3,6 +3,7 @@
 #include "nice_channel.h"
 #include <nice/agent.h>
 #include <nice/address.h>
+#include <nice/version.h>
 #include <cstring>
 #include <cerrno>
 #include <cstdarg>
@@ -13,8 +14,12 @@
 #include <winsock2.h>
 #endif
 
-#if defined(NICE_CHECK_VERSION) && NICE_CHECK_VERSION(0, 1, 18)
+#ifdef NICE_CHECK_VERSION
+#if NICE_CHECK_VERSION(0, 1, 18)
 #define POLEIS_NICE_HAS_STUN_SERVER_HELPER 0
+#else
+#define POLEIS_NICE_HAS_STUN_SERVER_HELPER 1
+#endif
 #else
 #define POLEIS_NICE_HAS_STUN_SERVER_HELPER 1
 #endif
