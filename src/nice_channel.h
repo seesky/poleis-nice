@@ -103,6 +103,11 @@ public:
                      NiceRelayType type = NICE_RELAY_TYPE_TURN_UDP);
    void clearTurnRelay();
 
+   // Restart candidate gathering after ICE configuration changes. Returns
+   // true if a new gathering cycle was successfully kicked off (or no agent
+   // is currently active), and false if libnice rejected the request.
+   bool restartCandidateGathering();
+
    // Restrict local candidates to the provided inclusive port range.
    // Specify (0, 0) to clear the restriction and use libnice defaults.
    void setPortRange(guint min_port, guint max_port);
