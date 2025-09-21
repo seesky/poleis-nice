@@ -1872,6 +1872,8 @@ void CUDT::sendCtrl(int pkttype, void* lparam, void* rparam, int size)
 
    case 3: //011 - Loss Report
       {
+      bool sent_nak = false;
+
       if (NULL != rparam)
       {
          if (1 == size)
@@ -1890,6 +1892,7 @@ void CUDT::sendCtrl(int pkttype, void* lparam, void* rparam, int size)
 
          ++ m_iSentNAK;
          ++ m_iSentNAKTotal;
+         sent_nak = true;
       }
       else if (m_pRcvLossList->getLossLength() > 0)
       {
@@ -1908,6 +1911,7 @@ void CUDT::sendCtrl(int pkttype, void* lparam, void* rparam, int size)
 
             ++ m_iSentNAK;
             ++ m_iSentNAKTotal;
+            sent_nak = true;
          }
 
          delete [] data;
@@ -1920,6 +1924,13 @@ void CUDT::sendCtrl(int pkttype, void* lparam, void* rparam, int size)
          m_ullNAKInt += (m_pRcvLossList->getLossLength() * 1000000ULL / rcv_speed) * m_ullCPUFrequency;
       if (m_ullNAKInt < m_ullMinNakInt)
          m_ullNAKInt = m_ullMinNakInt;
+
+      if (sent_nak)
+      {
+         uint64_t currtime;
+         CTimer::rdtsc(currtime);
+         m_ullNextNAKTime = currtime + m_ullNAKInt;
+      }
 
       break;
       }
@@ -2597,15 +2608,14 @@ void CUDT::checkTimers()
       ++ m_iLightACKCount;
    }
 
-   // we are not sending back repeated NAK anymore and rely on the sender's EXP for retransmission
-   //if ((m_pRcvLossList->getLossLength() > 0) && (currtime > m_ullNextNAKTime))
-   //{
-   //   // NAK timer expired, and there is loss to be reported.
-   //   sendCtrl(3);
-   //
-   //   CTimer::rdtsc(currtime);
-   //   m_ullNextNAKTime = currtime + m_ullNAKInt;
-   //}
+   if ((m_pRcvLossList->getLossLength() > 0) && (currtime > m_ullNextNAKTime))
+   {
+      // NAK timer expired, and there is loss to be reported.
+      sendCtrl(3);
+
+      CTimer::rdtsc(currtime);
+      m_ullNextNAKTime = currtime + m_ullNAKInt;
+   }
 
    uint64_t next_exp_time;
    if (m_pCC->m_bUserDefinedRTO)
