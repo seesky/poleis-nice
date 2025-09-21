@@ -9,6 +9,7 @@
 #include <type_traits>
 #ifndef WIN32
 #include <arpa/inet.h>
+#include <sys/socket.h>
 #else
 #include <winsock2.h>
 #endif
@@ -904,7 +905,16 @@ int CNiceChannel::getLocalCandidates(std::vector<std::string>& candidates) const
    GSList* list = nice_agent_get_local_candidates(m_pAgent, m_iStreamID, m_iComponentID);
    for (GSList* item = list; item; item = item->next)
    {
-      NiceCandidate* c = (NiceCandidate*)item->data;
+      NiceCandidate* c = static_cast<NiceCandidate*>(item->data);
+      sockaddr_storage storage;
+      memset(&storage, 0, sizeof(storage));
+
+      if (!nice_address_copy_to_sockaddr(&c->addr, reinterpret_cast<sockaddr*>(&storage)))
+         continue;
+
+      if (storage.ss_family != AF_INET)
+         continue;
+
       gchar* cand = nice_agent_generate_local_candidate_sdp(m_pAgent, c);
       if (cand)
       {
@@ -928,21 +938,37 @@ int CNiceChannel::setRemoteCredentials(const std::string& ufrag, const std::stri
 int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates)
 {
    GSList* list = NULL;
+   size_t filtered = 0;
    for (std::vector<std::string>::const_iterator it = candidates.begin(); it != candidates.end(); ++ it)
    {
       NiceCandidate* c = nice_agent_parse_remote_candidate_sdp(m_pAgent, m_iStreamID, it->c_str());
       if (c)
       {
          if (c->component_id == m_iComponentID)
+         {
+            sockaddr_storage storage;
+            memset(&storage, 0, sizeof(storage));
+
+            if (!nice_address_copy_to_sockaddr(&c->addr, reinterpret_cast<sockaddr*>(&storage)) ||
+                storage.ss_family != AF_INET)
+            {
+               ++filtered;
+               nice_candidate_free(c);
+               continue;
+            }
+
             list = g_slist_append(list, c);
+         }
          else
+         {
             nice_candidate_free(c);
+         }
       }
    }
    int r = nice_agent_set_remote_candidates(m_pAgent, m_iStreamID, m_iComponentID, list);
    g_slist_free_full(list, (GDestroyNotify)nice_candidate_free);
-   DebugLog("Applied %zu remote ICE candidates (result=%d)",
-            candidates.size(), r);
+   DebugLog("Applied %zu remote ICE candidates (%zu filtered, result=%d)",
+            candidates.size(), filtered, r);
    return r;
 }
 
