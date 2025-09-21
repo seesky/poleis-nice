@@ -281,30 +281,20 @@ int main(int argc, char *argv[])
    if (!sendAll(client, reinterpret_cast<const char *>(&name_len), sizeof(name_len)))
    {
       stop_monitor();
-
-   const int32_t name_len = static_cast<int32_t>(filename.size());
-   if (!sendAll(client, reinterpret_cast<const char *>(&name_len), sizeof(name_len)))
-   {
-
       UDT::close(client);
       return 1;
    }
 
    if (!sendAll(client, filename.data(), name_len))
    {
-
       stop_monitor();
-
-
       UDT::close(client);
       return 1;
    }
 
    if (!sendAll(client, reinterpret_cast<const char *>(&filesize), sizeof(filesize)))
    {
-
       stop_monitor();
-
       UDT::close(client);
       return 1;
    }
