@@ -16,4 +16,8 @@ if(ARCH)
 endif()
 
 add_subdirectory(src)
-add_subdirectory(app)
+
+option(BUILD_POLEIS_NICE_APP "Build poleis-nice sample apps/tests" OFF)
+if(BUILD_POLEIS_NICE_APP)
+  add_subdirectory(app)
+endif()

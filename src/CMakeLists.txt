@@ -15,6 +15,8 @@ set(SOURCES
     window.cpp
 )
 
+option(FORCE_LIBNICE "Force enable libnice support without pkg-config detection" OFF)
+
 find_package(PkgConfig)
 if(PkgConfig_FOUND)
   pkg_check_modules(NICE nice)
@@ -41,11 +43,17 @@ foreach(tgt udt udt_static)
   target_compile_definitions(${tgt} PRIVATE UDT_EXPORTS)
 endforeach()
 
-if(NICE_FOUND)
+if(NICE_FOUND OR FORCE_LIBNICE)
   foreach(tgt udt udt_static)
-    target_include_directories(${tgt} PUBLIC ${NICE_INCLUDE_DIRS})
-    target_link_libraries(${tgt} PUBLIC ${NICE_LIBRARIES})
-    target_compile_options(${tgt} PRIVATE ${NICE_CFLAGS_OTHER})
+    if(NICE_FOUND)
+      target_include_directories(${tgt} PUBLIC ${NICE_INCLUDE_DIRS})
+      target_link_libraries(${tgt} PUBLIC ${NICE_LIBRARIES})
+      target_compile_options(${tgt} PRIVATE ${NICE_CFLAGS_OTHER})
+    elseif(FORCE_LIBNICE)
+      # When FORCE_LIBNICE is set but pkg-config detection failed (e.g., on Windows/MinGW),
+      # link libnice manually. The include directories should be set in parent CMakeLists.txt.
+      target_link_libraries(${tgt} PUBLIC nice)
+    endif()
     target_compile_definitions(${tgt} PUBLIC USE_LIBNICE)
   endforeach()
 endif()
