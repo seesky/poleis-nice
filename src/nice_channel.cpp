@@ -451,72 +451,142 @@ void CNiceChannel::setRcvBufSize(int size)
 
 void CNiceChannel::getSockAddr(sockaddr* addr) const
 {
-   if (addr)
-   {
-      if (!m_SockAddr.ss_family)
-      {
-         NiceCandidate* lc = NULL;
-         NiceCandidate* rc = NULL;
-         if (nice_agent_get_selected_pair(m_pAgent, m_iStreamID, m_iComponentID, &lc, &rc))
-         {
-            if (lc)
-            {
-               nice_address_copy_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
-               nice_candidate_free(lc);
-            }
-            if (rc)
-            {
-               nice_address_copy_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
-               nice_candidate_free(rc);
-            }
-         }
-      }
+   if (!addr)
+      return;
 
-      if (m_SockAddr.ss_family)
-      {
-         if (AF_INET == m_SockAddr.ss_family)
-            memcpy(addr, &m_SockAddr, sizeof(sockaddr_in));
-         else
-            memcpy(addr, &m_SockAddr, sizeof(sockaddr_in6));
-      }
-      else
-         memset(addr, 0, sizeof(sockaddr));
+   sockaddr_storage storage;
+   if (!m_pContext || g_main_context_is_owner(m_pContext))
+   {
+      getSockAddrInternal(storage);
    }
+   else
+   {
+      ContextRequest* request = new ContextRequest(ContextRequest::GetSockAddr, const_cast<CNiceChannel*>(this));
+      request->ref();
+      g_main_context_invoke_full(m_pContext,
+                                 G_PRIORITY_DEFAULT,
+                                 &CNiceChannel::cb_context_request,
+                                 request,
+                                 &CNiceChannel::destroy_context_request);
+
+      g_mutex_lock(&request->mutex);
+      while (!request->completed)
+         g_cond_wait(&request->cond, &request->mutex);
+      storage = request->addr;
+      g_mutex_unlock(&request->mutex);
+      request->unref();
+   }
+
+   if (storage.ss_family == AF_INET)
+      memcpy(addr, &storage, sizeof(sockaddr_in));
+   else if (storage.ss_family == AF_INET6)
+      memcpy(addr, &storage, sizeof(sockaddr_in6));
+   else
+      memset(addr, 0, sizeof(sockaddr));
 }
 
 void CNiceChannel::getPeerAddr(sockaddr* addr) const
 {
-   if (addr)
+   if (!addr)
+      return;
+
+   sockaddr_storage storage;
+   if (!m_pContext || g_main_context_is_owner(m_pContext))
    {
-      if (!m_PeerAddr.ss_family)
+      getPeerAddrInternal(storage);
+   }
+   else
+   {
+      ContextRequest* request = new ContextRequest(ContextRequest::GetPeerAddr, const_cast<CNiceChannel*>(this));
+      request->ref();
+      g_main_context_invoke_full(m_pContext,
+                                 G_PRIORITY_DEFAULT,
+                                 &CNiceChannel::cb_context_request,
+                                 request,
+                                 &CNiceChannel::destroy_context_request);
+
+      g_mutex_lock(&request->mutex);
+      while (!request->completed)
+         g_cond_wait(&request->cond, &request->mutex);
+      storage = request->addr;
+      g_mutex_unlock(&request->mutex);
+      request->unref();
+   }
+
+   if (storage.ss_family == AF_INET)
+      memcpy(addr, &storage, sizeof(sockaddr_in));
+   else if (storage.ss_family == AF_INET6)
+      memcpy(addr, &storage, sizeof(sockaddr_in6));
+   else
+      memset(addr, 0, sizeof(sockaddr));
+}
+
+void CNiceChannel::getSockAddrInternal(sockaddr_storage& out) const
+{
+   memset(&out, 0, sizeof(out));
+
+   if (!m_pAgent)
+      return;
+
+   if (!m_SockAddr.ss_family)
+   {
+      NiceCandidate* lc = NULL;
+      NiceCandidate* rc = NULL;
+      if (nice_agent_get_selected_pair(m_pAgent, m_iStreamID, m_iComponentID, &lc, &rc))
       {
-         NiceCandidate* lc = NULL;
-         NiceCandidate* rc = NULL;
-         if (nice_agent_get_selected_pair(m_pAgent, m_iStreamID, m_iComponentID, &lc, &rc))
+         if (lc)
          {
-            if (lc)
-            {
+            if (nice_address_is_valid(&lc->addr))
                nice_address_copy_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
-               nice_candidate_free(lc);
-            }
-            if (rc)
-            {
+            nice_candidate_free(lc);
+         }
+         if (rc)
+         {
+            if (nice_address_is_valid(&rc->addr))
                nice_address_copy_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
-               nice_candidate_free(rc);
-            }
+            nice_candidate_free(rc);
          }
       }
-
-      if (m_PeerAddr.ss_family)
-      {
-         if (AF_INET == m_PeerAddr.ss_family)
-            memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in));
-         else
-            memcpy(addr, &m_PeerAddr, sizeof(sockaddr_in6));
-      }
-      else
-         memset(addr, 0, sizeof(sockaddr));
    }
+
+   if (m_SockAddr.ss_family == AF_INET)
+      memcpy(&out, &m_SockAddr, sizeof(sockaddr_in));
+   else if (m_SockAddr.ss_family == AF_INET6)
+      memcpy(&out, &m_SockAddr, sizeof(sockaddr_in6));
+}
+
+void CNiceChannel::getPeerAddrInternal(sockaddr_storage& out) const
+{
+   memset(&out, 0, sizeof(out));
+
+   if (!m_pAgent)
+      return;
+
+   if (!m_PeerAddr.ss_family)
+   {
+      NiceCandidate* lc = NULL;
+      NiceCandidate* rc = NULL;
+      if (nice_agent_get_selected_pair(m_pAgent, m_iStreamID, m_iComponentID, &lc, &rc))
+      {
+         if (lc)
+         {
+            if (nice_address_is_valid(&lc->addr))
+               nice_address_copy_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
+            nice_candidate_free(lc);
+         }
+         if (rc)
+         {
+            if (nice_address_is_valid(&rc->addr))
+               nice_address_copy_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
+            nice_candidate_free(rc);
+         }
+      }
+   }
+
+   if (m_PeerAddr.ss_family == AF_INET)
+      memcpy(&out, &m_PeerAddr, sizeof(sockaddr_in));
+   else if (m_PeerAddr.ss_family == AF_INET6)
+      memcpy(&out, &m_PeerAddr, sizeof(sockaddr_in6));
 }
 
 int CNiceChannel::sendto(const sockaddr* addr, CPacket& packet) const
@@ -627,12 +697,14 @@ int CNiceChannel::recvfrom(sockaddr* addr, CPacket& packet) const
       {
          if (lc)
          {
-            nice_address_copy_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
+            if (nice_address_is_valid(&lc->addr))
+               nice_address_copy_to_sockaddr(&lc->addr, (struct sockaddr*)&m_SockAddr);
             nice_candidate_free(lc);
          }
          if (rc)
          {
-            nice_address_copy_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
+            if (nice_address_is_valid(&rc->addr))
+               nice_address_copy_to_sockaddr(&rc->addr, (struct sockaddr*)&m_PeerAddr);
             if (addr)
             {
                if (AF_INET == m_PeerAddr.ss_family)
@@ -725,6 +797,65 @@ void CNiceChannel::destroy_send_request(gpointer data)
       request->unref();
 }
 
+void CNiceChannel::destroy_context_request(gpointer data)
+{
+   ContextRequest* request = static_cast<ContextRequest*>(data);
+   if (request)
+      request->unref();
+}
+
+gboolean CNiceChannel::cb_context_request(gpointer data)
+{
+   ContextRequest* request = static_cast<ContextRequest*>(data);
+   if (!request)
+      return G_SOURCE_REMOVE;
+
+   g_mutex_lock(&request->mutex);
+
+   CNiceChannel* channel = request->channel;
+   if (!channel || !channel->m_pAgent)
+   {
+      request->result = -1;
+   }
+   else
+   {
+      switch (request->type)
+      {
+      case ContextRequest::GetCredentials:
+         request->result = channel->getLocalCredentialsInternal(request->ufrag, request->pwd);
+         break;
+      case ContextRequest::GetCandidates:
+         request->result = channel->getLocalCandidatesInternal(request->candidates);
+         break;
+      case ContextRequest::SetCredentials:
+         request->result = channel->setRemoteCredentialsInternal(request->ufrag, request->pwd);
+         break;
+      case ContextRequest::SetCandidates:
+         request->result = channel->setRemoteCandidatesInternal(request->candidates);
+         break;
+      case ContextRequest::GetSockAddr:
+         channel->getSockAddrInternal(request->addr);
+         request->addr_set = true;
+         request->result = 0;
+         break;
+      case ContextRequest::GetPeerAddr:
+         channel->getPeerAddrInternal(request->addr);
+         request->addr_set = true;
+         request->result = 0;
+         break;
+      default:
+         request->result = -1;
+         break;
+      }
+   }
+
+   request->completed = true;
+   g_cond_signal(&request->cond);
+   g_mutex_unlock(&request->mutex);
+
+   return G_SOURCE_REMOVE;
+}
+
 gboolean CNiceChannel::cb_send_dispatch(gpointer data)
 {
    SendRequest* request = static_cast<SendRequest*>(data);
@@ -746,8 +877,12 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
 
       const bool closing = channel->m_bClosing;
       const bool failed = channel->m_bFailed;
+      bool connected = false;
+      g_mutex_lock(&channel->m_StateLock);
+      connected = channel->m_bConnected;
+      g_mutex_unlock(&channel->m_StateLock);
 
-      if (!closing && !failed && channel->m_pAgent && request->buffer)
+      if (!closing && !failed && connected && channel->m_pAgent && request->buffer)
       {
          request->result = s_SendFunc(channel->m_pAgent,
                                       channel->m_iStreamID,
@@ -786,6 +921,10 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
          else if (failed)
          {
             skip_reason = "channel already failed/disconnected";
+         }
+         else if (!connected)
+         {
+            skip_reason = "channel not connected";
          }
          else if (!channel->m_pAgent)
          {
@@ -878,8 +1017,10 @@ gboolean CNiceChannel::cb_send_dispatch(gpointer data)
    return G_SOURCE_REMOVE;
 }
 
-int CNiceChannel::getLocalCredentials(std::string& ufrag, std::string& pwd) const
+int CNiceChannel::getLocalCredentialsInternal(std::string& ufrag, std::string& pwd) const
 {
+   if (!m_pAgent)
+      return -1;
    gchar* lu = NULL;
    gchar* lp = NULL;
    if (!nice_agent_get_local_credentials(m_pAgent, m_iStreamID, &lu, &lp))
@@ -900,18 +1041,24 @@ int CNiceChannel::getLocalCredentials(std::string& ufrag, std::string& pwd) cons
    return 0;
 }
 
-int CNiceChannel::getLocalCandidates(std::vector<std::string>& candidates) const
+int CNiceChannel::getLocalCandidatesInternal(std::vector<std::string>& candidates) const
 {
+   if (!m_pAgent)
+      return -1;
+   candidates.clear();
    GSList* list = nice_agent_get_local_candidates(m_pAgent, m_iStreamID, m_iComponentID);
    for (GSList* item = list; item; item = item->next)
    {
       NiceCandidate* c = static_cast<NiceCandidate*>(item->data);
-      sockaddr_storage storage;
-      memset(&storage, 0, sizeof(storage));
-
-      nice_address_copy_to_sockaddr(&c->addr, reinterpret_cast<sockaddr*>(&storage));
-
-      if (storage.ss_family != AF_INET)
+      if (!c)
+         continue;
+      if (c->component_id != m_iComponentID)
+         continue;
+      if (c->transport != NICE_CANDIDATE_TRANSPORT_UDP)
+         continue;
+      if (!nice_address_is_valid(&c->addr))
+         continue;
+      if (nice_address_ip_version(&c->addr) != 4)
          continue;
 
       gchar* cand = nice_agent_generate_local_candidate_sdp(m_pAgent, c);
@@ -927,15 +1074,19 @@ int CNiceChannel::getLocalCandidates(std::vector<std::string>& candidates) const
    return candidates.size();
 }
 
-int CNiceChannel::setRemoteCredentials(const std::string& ufrag, const std::string& pwd)
+int CNiceChannel::setRemoteCredentialsInternal(const std::string& ufrag, const std::string& pwd)
 {
+   if (!m_pAgent)
+      return -1;
    DebugLog("Applying remote ICE credentials (ufrag length=%zu, pwd length=%zu)",
             ufrag.size(), pwd.size());
    return nice_agent_set_remote_credentials(m_pAgent, m_iStreamID, ufrag.c_str(), pwd.c_str());
 }
 
-int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates)
+int CNiceChannel::setRemoteCandidatesInternal(const std::vector<std::string>& candidates)
 {
+   if (!m_pAgent)
+      return -1;
    GSList* list = NULL;
    size_t filtered = 0;
    for (std::vector<std::string>::const_iterator it = candidates.begin(); it != candidates.end(); ++ it)
@@ -945,11 +1096,9 @@ int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates
       {
          if (c->component_id == m_iComponentID)
          {
-            sockaddr_storage storage;
-            memset(&storage, 0, sizeof(storage));
-
-            nice_address_copy_to_sockaddr(&c->addr, reinterpret_cast<sockaddr*>(&storage));
-            if (storage.ss_family != AF_INET)
+            if (c->transport != NICE_CANDIDATE_TRANSPORT_UDP ||
+                !nice_address_is_valid(&c->addr) ||
+                nice_address_ip_version(&c->addr) != 4)
             {
                ++filtered;
                nice_candidate_free(c);
@@ -969,6 +1118,104 @@ int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates
    DebugLog("Applied %zu remote ICE candidates (%zu filtered, result=%d)",
             candidates.size(), filtered, r);
    return r;
+}
+
+int CNiceChannel::getLocalCredentials(std::string& ufrag, std::string& pwd) const
+{
+   if (!m_pContext || g_main_context_is_owner(m_pContext))
+      return getLocalCredentialsInternal(ufrag, pwd);
+
+   ContextRequest* request = new ContextRequest(ContextRequest::GetCredentials, const_cast<CNiceChannel*>(this));
+   request->ref();
+   g_main_context_invoke_full(m_pContext,
+                              G_PRIORITY_DEFAULT,
+                              &CNiceChannel::cb_context_request,
+                              request,
+                              &CNiceChannel::destroy_context_request);
+
+   g_mutex_lock(&request->mutex);
+   while (!request->completed)
+      g_cond_wait(&request->cond, &request->mutex);
+   ufrag = request->ufrag;
+   pwd = request->pwd;
+   int result = request->result;
+   g_mutex_unlock(&request->mutex);
+
+   request->unref();
+   return result;
+}
+
+int CNiceChannel::getLocalCandidates(std::vector<std::string>& candidates) const
+{
+   if (!m_pContext || g_main_context_is_owner(m_pContext))
+      return getLocalCandidatesInternal(candidates);
+
+   ContextRequest* request = new ContextRequest(ContextRequest::GetCandidates, const_cast<CNiceChannel*>(this));
+   request->ref();
+   g_main_context_invoke_full(m_pContext,
+                              G_PRIORITY_DEFAULT,
+                              &CNiceChannel::cb_context_request,
+                              request,
+                              &CNiceChannel::destroy_context_request);
+
+   g_mutex_lock(&request->mutex);
+   while (!request->completed)
+      g_cond_wait(&request->cond, &request->mutex);
+   candidates = request->candidates;
+   int result = request->result;
+   g_mutex_unlock(&request->mutex);
+
+   request->unref();
+   return result;
+}
+
+int CNiceChannel::setRemoteCredentials(const std::string& ufrag, const std::string& pwd)
+{
+   if (!m_pContext || g_main_context_is_owner(m_pContext))
+      return setRemoteCredentialsInternal(ufrag, pwd);
+
+   ContextRequest* request = new ContextRequest(ContextRequest::SetCredentials, this);
+   request->ufrag = ufrag;
+   request->pwd = pwd;
+   request->ref();
+   g_main_context_invoke_full(m_pContext,
+                              G_PRIORITY_DEFAULT,
+                              &CNiceChannel::cb_context_request,
+                              request,
+                              &CNiceChannel::destroy_context_request);
+
+   g_mutex_lock(&request->mutex);
+   while (!request->completed)
+      g_cond_wait(&request->cond, &request->mutex);
+   int result = request->result;
+   g_mutex_unlock(&request->mutex);
+
+   request->unref();
+   return result;
+}
+
+int CNiceChannel::setRemoteCandidates(const std::vector<std::string>& candidates)
+{
+   if (!m_pContext || g_main_context_is_owner(m_pContext))
+      return setRemoteCandidatesInternal(candidates);
+
+   ContextRequest* request = new ContextRequest(ContextRequest::SetCandidates, this);
+   request->candidates = candidates;
+   request->ref();
+   g_main_context_invoke_full(m_pContext,
+                              G_PRIORITY_DEFAULT,
+                              &CNiceChannel::cb_context_request,
+                              request,
+                              &CNiceChannel::destroy_context_request);
+
+   g_mutex_lock(&request->mutex);
+   while (!request->completed)
+      g_cond_wait(&request->cond, &request->mutex);
+   int result = request->result;
+   g_mutex_unlock(&request->mutex);
+
+   request->unref();
+   return result;
 }
 
 void CNiceChannel::setControllingMode(bool controlling)

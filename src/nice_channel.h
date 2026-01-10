@@ -48,6 +48,7 @@ written by
 
 #include <nice/agent.h>
 #include <glib.h>
+#include <cstring>
 #include <queue>
 #include <string>
 #include <vector>
@@ -109,6 +110,13 @@ public:
    void setPortRange(guint min_port, guint max_port);
 
 private:
+   int getLocalCredentialsInternal(std::string& ufrag, std::string& pwd) const;
+   int getLocalCandidatesInternal(std::vector<std::string>& candidates) const;
+   int setRemoteCredentialsInternal(const std::string& ufrag, const std::string& pwd);
+   int setRemoteCandidatesInternal(const std::vector<std::string>& candidates);
+   void getSockAddrInternal(sockaddr_storage& out) const;
+   void getPeerAddrInternal(sockaddr_storage& out) const;
+
    struct SendRequest
    {
       CNiceChannel*       channel;
@@ -159,6 +167,62 @@ private:
       }
    };
 
+   struct ContextRequest
+   {
+      enum Type
+      {
+         GetCredentials,
+         GetCandidates,
+         SetCredentials,
+         SetCandidates,
+         GetSockAddr,
+         GetPeerAddr,
+      };
+
+      CNiceChannel*           channel;
+      Type                    type;
+      std::string             ufrag;
+      std::string             pwd;
+      std::vector<std::string> candidates;
+      sockaddr_storage        addr;
+      bool                    addr_set;
+      int                     result;
+      bool                    completed;
+      gint                    ref_count;
+      GMutex                  mutex;
+      GCond                   cond;
+
+      ContextRequest(Type t, CNiceChannel* c)
+      : channel(c)
+      , type(t)
+      , result(-1)
+      , completed(false)
+      , ref_count(1)
+      {
+         g_mutex_init(&mutex);
+         g_cond_init(&cond);
+         memset(&addr, 0, sizeof(addr));
+         addr_set = false;
+      }
+
+      ~ContextRequest()
+      {
+         g_cond_clear(&cond);
+         g_mutex_clear(&mutex);
+      }
+
+      void ref()
+      {
+         g_atomic_int_inc(&ref_count);
+      }
+
+      void unref()
+      {
+         if (g_atomic_int_dec_and_test(&ref_count))
+            delete this;
+      }
+   };
+
    static void cb_recv(NiceAgent* agent, guint stream_id, guint component_id,
                        guint len, gchar* buf, gpointer data);
    static gpointer cb_loop(gpointer data);
@@ -169,6 +233,8 @@ private:
                                            gpointer data);
    static gboolean cb_send_dispatch(gpointer data);
    static void destroy_send_request(gpointer data);
+   static gboolean cb_context_request(gpointer data);
+   static void destroy_context_request(gpointer data);
 
    typedef gint (*NiceAgentSendFunc)(NiceAgent*, guint, guint, guint, const gchar*);
 
